@@ -81,10 +81,11 @@ class DeviceRepositoryImpl(
             val topic = DeviceMqttTopics.commandTopic(command.deviceId)
             val payload = commandMapper.toMqttPayload(command)
 
-            val isConnected = false 
-
-            if (isConnected) {
+            val publishOk = runCatching {
                 mqttHandler.publishCommand(topic, payload, qos, retained = false)
+            }.isSuccess
+
+            if (publishOk) {
                 Result.Success(CommandAck.Success)
             } else {
                 val id = UUID.randomUUID().toString()
