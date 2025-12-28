@@ -4,16 +4,16 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 
-class ActiveControlService : Service() {
+class SecurityMonitorService : Service() {
     override fun onBind(intent: Intent): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notifications = ServiceNotifications(this)
         startForeground(
-            ServiceNotifications.ACTIVE_CONTROL_NOTIFICATION_ID,
-            notifications.activeControlNotification()
+            ServiceNotifications.SECURITY_NOTIFICATION_ID,
+            notifications.securityMonitorNotification()
         )
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {

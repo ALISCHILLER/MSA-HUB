@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
-class PeriodicSyncWorker(
+class ConnectionHealthWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {

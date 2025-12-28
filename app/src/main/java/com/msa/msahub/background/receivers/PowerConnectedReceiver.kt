@@ -6,14 +6,14 @@ import android.content.Intent
 import com.msa.msahub.background.scheduler.WorkScheduler
 import org.koin.core.context.GlobalContext
 
-class BootCompletedReceiver : BroadcastReceiver() {
+class PowerConnectedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
+        if (intent.action != Intent.ACTION_POWER_CONNECTED) {
             return
         }
 
         val scheduler = GlobalContext.get().koin.get<WorkScheduler>()
-        scheduler.schedulePeriodicSync()
-        scheduler.scheduleConnectionHealthCheck()
+        scheduler.scheduleDataCleanup()
+        scheduler.scheduleAnalyticsUpload()
     }
 }
