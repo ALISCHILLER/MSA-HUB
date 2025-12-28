@@ -1,15 +1,13 @@
 package com.msa.msahub.core.di
 
-import android.content.Context
+import android.app.Application
 import org.koin.android.ext.koin.androidContext
-import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 
 object KoinInitializer {
-    fun init(context: Context) {
+    fun init(app: Application) {
         startKoin {
-            androidLogger()
-            androidContext(context)
+            androidContext(app)
             modules(ModuleRegistry.allModules)
         }
     }
