@@ -44,7 +44,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -53,7 +53,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     
     // Navigation
-    implementation(libs.navigation.compose)
+    implementation(libs.androidx.navigation.compose)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
@@ -67,7 +67,7 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.json)
+    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.logging)
 
     // Serialization
@@ -77,29 +77,25 @@ dependencies {
     implementation(libs.hivemq.mqtt.client)
 
     // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // DataStore
-    implementation(libs.datastore.preferences)
+    implementation(libs.androidx.datastore.preferences)
 
     // WorkManager
-    implementation(libs.work.runtime.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Logging
     implementation(libs.timber)
 
     // Security
     implementation(libs.tink.android)
-    implementation(libs.security.crypto)
-    implementation(libs.sqlcipher)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.sqlcipher.android)
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

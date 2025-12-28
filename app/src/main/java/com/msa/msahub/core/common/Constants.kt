@@ -1,6 +1,6 @@
 package com.msa.msahub.core.common
 
 object Constants {
-    const val DATABASE_NAME = "msa_hub_db"
-    const val DATASTORE_NAME = "msa_hub_prefs"
+    const val API_TIMEOUT = 30000L
+    const val MQTT_KEEP_ALIVE = 60
 }
