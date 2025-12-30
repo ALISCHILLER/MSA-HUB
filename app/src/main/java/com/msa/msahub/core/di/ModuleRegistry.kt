@@ -2,6 +2,7 @@ package com.msa.msahub.core.di
 
 import com.msa.msahub.features.devices.di.DevicesModule
 import com.msa.msahub.features.home.di.HomeModule
+import com.msa.msahub.features.scenes.di.ScenesModule
 import org.koin.core.module.Module
 
 object ModuleRegistry {
@@ -13,6 +14,7 @@ object ModuleRegistry {
         AppScopeModule.module,
         BackgroundModule.module,
         HomeModule.module,
-        DevicesModule.module
+        DevicesModule.module,
+        ScenesModule.module
     )
 }

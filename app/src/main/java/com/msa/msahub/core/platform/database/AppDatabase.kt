@@ -11,21 +11,25 @@ import com.msa.msahub.features.devices.data.local.entity.DeviceEntity
 import com.msa.msahub.features.devices.data.local.entity.DeviceHistoryEntity
 import com.msa.msahub.features.devices.data.local.entity.DeviceStateEntity
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
+import com.msa.msahub.features.scenes.data.local.dao.SceneDao
+import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
 
 @Database(
     entities = [
         DeviceEntity::class,
         DeviceStateEntity::class,
+        DeviceHistoryEntity::class,
         OfflineCommandEntity::class,
-        DeviceHistoryEntity::class
+        SceneEntity::class
     ],
-    version = 1,
-    exportSchema = true
+    version = 3, // ارتقا ورژن به دلیل تغییرات ساختاری
+    exportSchema = false
 )
 @TypeConverters(RoomConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
     abstract fun deviceStateDao(): DeviceStateDao
-    abstract fun offlineCommandDao(): OfflineCommandDao
     abstract fun deviceHistoryDao(): DeviceHistoryDao
+    abstract fun offlineCommandDao(): OfflineCommandDao
+    abstract fun sceneDao(): SceneDao
 }

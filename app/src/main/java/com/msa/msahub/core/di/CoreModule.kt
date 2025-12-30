@@ -1,11 +1,11 @@
 package com.msa.msahub.core.di
 
-import com.msa.msahub.core.common.*
+import com.msa.msahub.core.common.Clock
+import com.msa.msahub.core.common.SystemClock
 import org.koin.dsl.module
 
-val coreModule = module {
-    single<DispatcherProvider> { DefaultDispatcherProvider() }
-    single<Logger> { AppLogger() }
-    single<Clock> { SystemClock() }
-    single<IdGenerator> { UUIDGenerator() }
+object CoreModule {
+    val module = module {
+        single<Clock> { SystemClock() }
+    }
 }

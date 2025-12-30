@@ -1,0 +1,21 @@
+package com.msa.msahub.features.scenes.data.mapper
+
+import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
+import com.msa.msahub.features.scenes.domain.model.Scene
+
+class SceneMapper {
+    fun toDomain(entity: SceneEntity): Scene = Scene(
+        id = entity.id,
+        name = entity.name,
+        actions = entity.actions,
+        enabled = entity.enabled
+    )
+
+    fun toEntity(scene: Scene, now: Long): SceneEntity = SceneEntity(
+        id = scene.id,
+        name = scene.name,
+        enabled = scene.enabled,
+        actions = scene.actions,
+        updatedAt = now
+    )
+}

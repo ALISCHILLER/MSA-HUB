@@ -1,7 +1,11 @@
 package com.msa.msahub.core.platform.network.mqtt
 
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * مرجع واحد تمام مدل‌ها و اینترفیس ارتباطی MQTT
+ */
 
 enum class Qos(val value: Int) {
     AtMostOnce(0),
@@ -9,23 +13,42 @@ enum class Qos(val value: Int) {
     ExactlyOnce(2)
 }
 
+data class MqttConfig(
+    val host: String,
+    val port: Int,
+    val clientId: String,
+    val username: String? = null,
+    val password: String? = null,
+    val useTls: Boolean = false,
+    val cleanStart: Boolean = true,
+    val keepAlive: Int = 60
+)
+
 data class MqttMessage(
     val topic: String,
     val payload: ByteArray,
     val qos: Qos = Qos.AtLeastOnce,
-    val retained: Boolean = false
+    val retained: Boolean = false,
+    val correlationId: String? = null // برای رهگیری فرمان‌ها
 )
 
 sealed interface MqttConnectionState {
     data object Disconnected : MqttConnectionState
     data object Connecting : MqttConnectionState
     data object Connected : MqttConnectionState
-    data class Error(val message: String) : MqttConnectionState
+    data class Error(val message: String, val cause: Throwable? = null) : MqttConnectionState
 }
 
 interface MqttClient {
+    /**
+     * وضعیت لحظه‌ای اتصال به بروکر
+     */
     val connectionState: StateFlow<MqttConnectionState>
-    val incomingMessages: SharedFlow<MqttMessage>
+
+    /**
+     * جریان پیام‌های دریافتی از تمام Topicهای Subscribe شده
+     */
+    val incomingMessages: Flow<MqttMessage>
 
     suspend fun connect(config: MqttConfig)
     suspend fun disconnect()
@@ -33,5 +56,5 @@ interface MqttClient {
     suspend fun subscribe(topic: String, qos: Qos = Qos.AtLeastOnce)
     suspend fun unsubscribe(topic: String)
 
-    suspend fun publish(topic: String, payload: ByteArray, qos: Qos = Qos.AtLeastOnce, retained: Boolean = false)
+    suspend fun publish(message: MqttMessage)
 }
