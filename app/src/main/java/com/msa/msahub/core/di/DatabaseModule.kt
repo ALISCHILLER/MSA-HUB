@@ -27,6 +27,13 @@ object DatabaseModule {
         single { get<AppDatabase>().sceneDao() }
 
         // DB seeder
-        single { DatabaseInitializer(get(), get(), get(), get(), get()) }
+        single { 
+            DatabaseInitializer(
+                deviceDao = get(),
+                deviceStateDao = get(),
+                logger = get(),
+                scope = get(AppScopeModule.APP_SCOPE)
+            )
+        }
     }
 }

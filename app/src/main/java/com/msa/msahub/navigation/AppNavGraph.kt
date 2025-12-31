@@ -1,69 +1,123 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.msa.msahub.navigation
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.msa.msahub.features.devices.presentation.screens.DeviceDetailScreen
-import com.msa.msahub.features.devices.presentation.screens.DeviceListScreen
+import com.msa.msahub.features.devices.presentation.screens.*
 import com.msa.msahub.features.home.presentation.HomeScreen
+import com.msa.msahub.features.scenes.presentation.screens.SceneEditorScreen
+import com.msa.msahub.features.scenes.presentation.screens.SceneListScreen
+import com.msa.msahub.features.settings.presentation.SettingsScreen
 
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.HOME
-    ) {
-        composable(Routes.HOME) {
-            HomeScreen(
-                onDevicesClick = { navController.navigate(Routes.DEVICES) }
-            )
-        }
+    val topLevel = listOf(
+        Routes.HOME to "Home",
+        Routes.DEVICES to "Devices",
+        Routes.SCENES to "Scenes",
+        Routes.SETTINGS to "Settings"
+    )
 
-        composable(Routes.DEVICES) {
-            DeviceListScreen(
-                onDeviceClick = { id -> navController.navigate(Routes.deviceDetail(id)) },
-                onBack = { navController.popBackStack() }
-            )
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry = navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry.value?.destination?.route
+                
+                topLevel.forEach { (route, label) ->
+                    NavigationBarItem(
+                        selected = currentRoute == route,
+                        onClick = {
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { /* Icon placeholder */ },
+                        label = { Text(label) }
+                    )
+                }
+            }
         }
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
+            modifier = Modifier.padding(padding)
+        ) {
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onDeviceClick = { id -> navController.navigate(Routes.deviceDetail(id)) },
+                    onSeeAllDevices = { navController.navigate(Routes.DEVICES) }
+                )
+            }
 
-        composable(
-            route = Routes.DEVICE_DETAIL,
-            arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
-            DeviceDetailScreen(
-                deviceId = deviceId,
-                onHistoryClick = { navController.navigate(Routes.deviceHistory(deviceId)) },
-                onSettingsClick = { navController.navigate(Routes.deviceSettings(deviceId)) },
-                onBack = { navController.popBackStack() }
-            )
-        }
+            composable(Routes.DEVICES) {
+                DeviceListScreen(
+                    onDeviceClick = { id -> navController.navigate(Routes.deviceDetail(id)) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(
-            route = Routes.DEVICE_HISTORY,
-            arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
-            SimplePlaceholderScreen(
-                title = "Device History for $deviceId",
-                onBack = { navController.popBackStack() }
-            )
-        }
+            composable(
+                route = Routes.DEVICE_DETAIL,
+                arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
+                DeviceDetailScreen(
+                    deviceId = deviceId,
+                    onHistoryClick = { navController.navigate(Routes.deviceHistory(deviceId)) },
+                    onSettingsClick = { navController.navigate(Routes.deviceSettings(deviceId)) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
 
-        composable(
-            route = Routes.DEVICE_SETTINGS,
-            arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
-            SimplePlaceholderScreen(
-                title = "Settings for $deviceId",
-                onBack = { navController.popBackStack() }
-            )
+            composable(
+                route = Routes.DEVICE_HISTORY,
+                arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
+                DeviceHistoryScreen(deviceId = deviceId, onBack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = Routes.DEVICE_SETTINGS,
+                arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
+                DeviceSettingsScreen(deviceId = deviceId, onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.SCENES) {
+                SceneListScreen(
+                    onCreate = { navController.navigate(Routes.sceneEditor("new")) },
+                    onEdit = { id -> navController.navigate(Routes.sceneEditor(id)) }
+                )
+            }
+
+            composable(
+                route = Routes.SCENE_EDITOR,
+                arguments = listOf(navArgument("sceneId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val sceneId = backStackEntry.arguments?.getString("sceneId")
+                SceneEditorScreen(sceneId = sceneId, onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.SETTINGS) {
+                SettingsScreen()
+            }
         }
     }
 }

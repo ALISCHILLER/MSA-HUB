@@ -12,11 +12,23 @@ interface OfflineCommandDao {
     @Query("SELECT * FROM offline_commands ORDER BY createdAtMillis ASC")
     suspend fun getAll(): List<OfflineCommandEntity>
 
+    // Alias used by repositories
+    @Query("SELECT * FROM offline_commands ORDER BY createdAtMillis ASC")
+    suspend fun getAllPending(): List<OfflineCommandEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: OfflineCommandEntity)
 
+    // Alias used by repositories
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(item: OfflineCommandEntity)
+
     @Query("DELETE FROM offline_commands WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    // Alias used by repositories
+    @Query("DELETE FROM offline_commands WHERE id = :id")
+    suspend fun delete(id: String)
 
     @Query("DELETE FROM offline_commands")
     suspend fun clear()

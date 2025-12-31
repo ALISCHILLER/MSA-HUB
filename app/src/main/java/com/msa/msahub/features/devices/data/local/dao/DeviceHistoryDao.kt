@@ -5,9 +5,13 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.msa.msahub.features.devices.data.local.entity.DeviceHistoryEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DeviceHistoryDao {
+
+    @Query("SELECT * FROM device_history WHERE deviceId = :deviceId ORDER BY recordedAtMillis DESC LIMIT :limit")
+    fun observeRecent(deviceId: String, limit: Int): Flow<List<DeviceHistoryEntity>>
 
     @Query("SELECT * FROM device_history WHERE deviceId = :deviceId ORDER BY recordedAtMillis DESC LIMIT :limit")
     suspend fun getForDevice(deviceId: String, limit: Int): List<DeviceHistoryEntity>

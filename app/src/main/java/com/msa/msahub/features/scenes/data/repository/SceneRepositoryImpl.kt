@@ -1,10 +1,13 @@
 package com.msa.msahub.features.scenes.data.repository
 
+import android.util.Base64
 import com.msa.msahub.core.common.AppError
 import com.msa.msahub.core.common.Clock
 import com.msa.msahub.core.common.IdGenerator
 import com.msa.msahub.core.common.Result
 import com.msa.msahub.core.platform.network.mqtt.MqttClient
+import com.msa.msahub.core.platform.network.mqtt.MqttMessage
+import com.msa.msahub.core.platform.network.mqtt.Qos
 import com.msa.msahub.features.devices.data.local.dao.OfflineCommandDao
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttTopics
@@ -69,15 +72,17 @@ class SceneRepositoryImpl(
                 val payloadBytes = (action.payload ?: action.command).toByteArray()
 
                 if (isConnected) {
-                    mqtt.publish(topic, payloadBytes)
+                    mqtt.publish(MqttMessage(topic = topic, payload = payloadBytes))
                 } else {
-                    offlineDao.insert(
+                    offlineDao.upsert(
                         OfflineCommandEntity(
                             id = ids.uuid(),
                             deviceId = action.deviceId,
                             topic = topic,
-                            payload = payloadBytes,
-                            createdAt = clock.nowMillis()
+                            payloadBase64 = Base64.encodeToString(payloadBytes, Base64.NO_WRAP),
+                            qos = 1, // Default to AtLeastOnce
+                            retained = false,
+                            createdAtMillis = clock.nowMillis()
                         )
                     )
                 }

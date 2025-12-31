@@ -1,10 +1,10 @@
 package com.msa.msahub.features.devices.data.repository
 
+import android.util.Base64
 import com.msa.msahub.core.common.AppError
 import com.msa.msahub.core.common.Result
 import com.msa.msahub.core.platform.network.mqtt.Qos
 import com.msa.msahub.features.devices.data.local.dao.*
-import com.msa.msahub.features.devices.data.local.entity.*
 import com.msa.msahub.features.devices.data.mapper.*
 import com.msa.msahub.features.devices.data.remote.api.DeviceApiService
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
@@ -78,7 +78,17 @@ class DeviceRepositoryImpl(
 
         if (publishOk) Result.Success(CommandAck.Success)
         else {
-            offlineCommandDao.upsert(commandMapper.toOfflineEntity(UUID.randomUUID().toString(), command.deviceId, topic, payload, Qos.AtLeastOnce, false, command.createdAtMillis))
+            offlineCommandDao.upsert(
+                commandMapper.toOfflineEntity(
+                    UUID.randomUUID().toString(),
+                    command.deviceId,
+                    topic,
+                    payload,
+                    Qos.AtLeastOnce,
+                    false,
+                    command.createdAtMillis
+                )
+            )
             Result.Success(CommandAck.QueuedOffline)
         }
     } catch (t: Throwable) {
@@ -88,7 +98,15 @@ class DeviceRepositoryImpl(
     override suspend fun flushOutbox(max: Int): Result<Int> = try {
         val pending = offlineCommandDao.getAllPending().take(max)
         pending.forEach {
-            mqttHandler.publishCommand(it.topic, it.payloadBase64.toByteArray(), Qos.AtLeastOnce, false)
+            val payload = Base64.decode(it.payloadBase64, Base64.NO_WRAP)
+            val qos = when (it.qos) {
+                0 -> Qos.AtMostOnce
+                1 -> Qos.AtLeastOnce
+                2 -> Qos.ExactlyOnce
+                else -> Qos.AtLeastOnce
+            }
+
+            mqttHandler.publishCommand(it.topic, payload, qos, it.retained)
             offlineCommandDao.delete(it.id)
         }
         Result.Success(pending.size)

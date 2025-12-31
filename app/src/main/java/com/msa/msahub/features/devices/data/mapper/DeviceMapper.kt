@@ -29,7 +29,7 @@ class DeviceMapper {
         return Device(
             id = entity.id,
             name = entity.name,
-            type = runCatching { DeviceType.valueOf(entity.type) }.getOrDefault(DeviceType.GENERIC),
+            type = runCatching { DeviceType.valueOf(entity.type) }.getOrDefault(DeviceType.UNKNOWN),
             capabilities = caps,
             isFavorite = entity.isFavorite,
             roomName = entity.roomName,

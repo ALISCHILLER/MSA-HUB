@@ -5,15 +5,25 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.msa.msahub.features.devices.data.local.entity.DeviceEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DeviceDao {
+
+    @Query("SELECT * FROM devices ORDER BY name ASC")
+    fun observeAll(): Flow<List<DeviceEntity>>
+
+    @Query("SELECT * FROM devices WHERE id = :deviceId LIMIT 1")
+    fun observeById(deviceId: String): Flow<DeviceEntity?>
 
     @Query("SELECT * FROM devices ORDER BY name ASC")
     suspend fun getAll(): List<DeviceEntity>
 
     @Query("SELECT * FROM devices WHERE id = :deviceId LIMIT 1")
     suspend fun getById(deviceId: String): DeviceEntity?
+
+    @Query("SELECT COUNT(*) FROM devices")
+    suspend fun count(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<DeviceEntity>)

@@ -10,7 +10,7 @@ import com.msa.msahub.features.devices.data.mapper.DeviceCommandMapper
 import com.msa.msahub.features.devices.data.mapper.DeviceMapper
 import com.msa.msahub.features.devices.data.mapper.DeviceStateMapper
 import com.msa.msahub.features.devices.data.remote.api.DeviceApiService
-import com.msa.msahub.features.devices.data.remote.api.FakeDeviceApiService
+import com.msa.msahub.features.devices.data.remote.api.DeviceApiServiceImpl
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
 import com.msa.msahub.features.devices.data.repository.DeviceRepositoryImpl
 import com.msa.msahub.features.devices.domain.repository.DeviceRepository
@@ -41,7 +41,14 @@ object DevicesModule {
         single { DeviceCommandMapper() }
 
         // --- Remote ---
-        single<DeviceApiService> { FakeDeviceApiService() }
+        // برای استفاده واقعی از API:
+        single<DeviceApiService> { 
+            DeviceApiServiceImpl(
+                httpClient = get(),
+                networkConfig = get(),
+                mapper = get()
+            )
+        }
         single { DeviceMqttHandler(mqttClient = get<MqttClient>()) }
 
         // --- Repository ---
