@@ -1,6 +1,10 @@
 package com.msa.msahub.core.platform.network.mqtt.impl
 
-import com.msa.msahub.core.platform.network.mqtt.*
+import com.msa.msahub.core.platform.network.mqtt.MqttClient
+import com.msa.msahub.core.platform.network.mqtt.MqttConfig
+import com.msa.msahub.core.platform.network.mqtt.MqttConnectionState
+import com.msa.msahub.core.platform.network.mqtt.MqttMessage
+import com.msa.msahub.core.platform.network.mqtt.Qos
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -31,7 +35,7 @@ class FakeMqttClient : MqttClient {
         // no-op
     }
 
-    override suspend fun publish(topic: String, payload: ByteArray, qos: Qos, retained: Boolean) {
-        _incomingMessages.tryEmit(MqttMessage(topic = topic, payload = payload, qos = qos, retained = retained))
+    override suspend fun publish(message: MqttMessage) {
+        _incomingMessages.tryEmit(message)
     }
 }

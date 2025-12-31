@@ -2,27 +2,31 @@ package com.msa.msahub.core.di
 
 import androidx.room.Room
 import com.msa.msahub.core.platform.database.AppDatabase
+import com.msa.msahub.core.platform.database.DatabaseInitializer
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
-val databaseModule = module {
+object DatabaseModule {
+    val module = module {
 
-    single<AppDatabase> {
-        Room.databaseBuilder(
-            context = androidContext(),
-            klass = AppDatabase::class.java,
-            name = "msa_hub.db"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
+        single<AppDatabase> {
+            Room.databaseBuilder(
+                context = androidContext(),
+                klass = AppDatabase::class.java,
+                name = "msa_hub.db"
+            )
+                .fallbackToDestructiveMigration()
+                .build()
+        }
+
+        // DAOs
+        single { get<AppDatabase>().deviceDao() }
+        single { get<AppDatabase>().deviceStateDao() }
+        single { get<AppDatabase>().deviceHistoryDao() }
+        single { get<AppDatabase>().offlineCommandDao() }
+        single { get<AppDatabase>().sceneDao() }
+
+        // DB seeder
+        single { DatabaseInitializer(get(), get(), get(), get(), get()) }
     }
-
-    // DAOs موجود واقعی در AppDatabase
-    single { get<AppDatabase>().deviceDao() }
-    single { get<AppDatabase>().deviceStateDao() }
-    single { get<AppDatabase>().deviceHistoryDao() }
-    single { get<AppDatabase>().offlineCommandDao() }
-
-    // Scenes (بعد از آپدیت AppDatabase که پایین می‌دم)
-    single { get<AppDatabase>().sceneDao() }
 }

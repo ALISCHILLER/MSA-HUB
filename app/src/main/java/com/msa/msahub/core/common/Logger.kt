@@ -3,13 +3,17 @@ package com.msa.msahub.core.common
 import timber.log.Timber
 
 interface Logger {
-    fun d(message: String, vararg args: Any?)
-    fun e(t: Throwable?, message: String, vararg args: Any?)
-    fun i(message: String, vararg args: Any?)
+    fun d(message: String)
+    fun i(message: String)
+    fun w(message: String)
+    fun e(message: String, throwable: Throwable? = null)
 }
 
-class AppLogger : Logger {
-    override fun d(message: String, vararg args: Any?) = Timber.d(message, *args)
-    override fun e(t: Throwable?, message: String, vararg args: Any?) = Timber.e(t, message, *args)
-    override fun i(message: String, vararg args: Any?) = Timber.i(message, *args)
+class TimberLogger : Logger {
+    override fun d(message: String) = Timber.d(message)
+    override fun i(message: String) = Timber.i(message)
+    override fun w(message: String) = Timber.w(message)
+    override fun e(message: String, throwable: Throwable?) {
+        if (throwable == null) Timber.e(message) else Timber.e(throwable, message)
+    }
 }

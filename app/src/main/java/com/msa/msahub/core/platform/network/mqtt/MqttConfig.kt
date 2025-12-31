@@ -1,8 +1,5 @@
+@file:Suppress("unused")
 package com.msa.msahub.core.platform.network.mqtt
 
-data class MqttConfig(
-    val host: String,
-    val port: Int,
-    val clientId: String,
-    val useTls: Boolean = true
-)
+// NOTE: MqttConfig is defined in MqttModels.kt.
+// This file is intentionally left blank to avoid redeclaration.

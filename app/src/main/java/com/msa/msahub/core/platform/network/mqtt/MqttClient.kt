@@ -1,6 +1,5 @@
+@file:Suppress("unused")
 package com.msa.msahub.core.platform.network.mqtt
 
-/**
- * توجه: اینترفیس MqttClient به فایل MqttModels.kt منتقل شده است
- * تا از تداخل تعاریف (Redeclaration) جلوگیری شود.
- */
+// NOTE: MqttClient is defined in MqttModels.kt.
+// This file is intentionally left blank to avoid redeclaration.

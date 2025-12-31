@@ -16,15 +16,15 @@ fun AppNavGraph() {
 
     NavHost(
         navController = navController,
-        startDestination = Routes.home
+        startDestination = Routes.HOME
     ) {
-        composable(Routes.home) {
+        composable(Routes.HOME) {
             HomeScreen(
-                onDevicesClick = { navController.navigate(Routes.devices) }
+                onDevicesClick = { navController.navigate(Routes.DEVICES) }
             )
         }
 
-        composable(Routes.devices) {
+        composable(Routes.DEVICES) {
             DeviceListScreen(
                 onDeviceClick = { id -> navController.navigate(Routes.deviceDetail(id)) },
                 onBack = { navController.popBackStack() }
@@ -32,28 +32,38 @@ fun AppNavGraph() {
         }
 
         composable(
-            route = Routes.device_detail,
+            route = Routes.DEVICE_DETAIL,
             arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val deviceId = backStackEntry.arguments?.getString("deviceId") ?: ""
+            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
             DeviceDetailScreen(
                 deviceId = deviceId,
+                onHistoryClick = { navController.navigate(Routes.deviceHistory(deviceId)) },
+                onSettingsClick = { navController.navigate(Routes.deviceSettings(deviceId)) },
                 onBack = { navController.popBackStack() }
             )
         }
 
         composable(
-            route = Routes.device_history,
+            route = Routes.DEVICE_HISTORY,
             arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
-        ) {
-            SimplePlaceholderScreen(title = "Device History", onBack = { navController.popBackStack() })
+        ) { backStackEntry ->
+            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
+            SimplePlaceholderScreen(
+                title = "Device History for $deviceId",
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(
-            route = Routes.device_settings,
+            route = Routes.DEVICE_SETTINGS,
             arguments = listOf(navArgument("deviceId") { type = NavType.StringType })
-        ) {
-            SimplePlaceholderScreen(title = "Device Settings", onBack = { navController.popBackStack() })
+        ) { backStackEntry ->
+            val deviceId = backStackEntry.arguments?.getString("deviceId").orEmpty()
+            SimplePlaceholderScreen(
+                title = "Settings for $deviceId",
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
