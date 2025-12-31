@@ -3,6 +3,11 @@
 package com.msa.msahub.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,10 +26,10 @@ fun AppNavGraph() {
     val navController = rememberNavController()
 
     val topLevel = listOf(
-        Routes.HOME to "Home",
-        Routes.DEVICES to "Devices",
-        Routes.SCENES to "Scenes",
-        Routes.SETTINGS to "Settings"
+        Triple(Routes.HOME, "Home", Icons.Default.Home),
+        Triple(Routes.DEVICES, "Devices", Icons.Default.List),
+        Triple(Routes.SCENES, "Scenes", Icons.Default.PlayArrow),
+        Triple(Routes.SETTINGS, "Settings", Icons.Default.Settings)
     )
 
     Scaffold(
@@ -33,7 +38,7 @@ fun AppNavGraph() {
                 val navBackStackEntry = navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry.value?.destination?.route
                 
-                topLevel.forEach { (route, label) ->
+                topLevel.forEach { (route, label, icon) ->
                     NavigationBarItem(
                         selected = currentRoute == route,
                         onClick = {
@@ -45,7 +50,7 @@ fun AppNavGraph() {
                                 restoreState = true
                             }
                         },
-                        icon = { /* Icon placeholder */ },
+                        icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label) }
                     )
                 }
