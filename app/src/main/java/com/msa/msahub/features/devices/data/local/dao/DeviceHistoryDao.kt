@@ -17,7 +17,7 @@ interface DeviceHistoryDao {
     suspend fun getForDevice(deviceId: String, limit: Int): List<DeviceHistoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(item: DeviceHistoryEntity)
+    suspend fun insert(item: DeviceHistoryEntity)
 
     @Query("DELETE FROM device_history WHERE deviceId = :deviceId")
     suspend fun clearForDevice(deviceId: String)

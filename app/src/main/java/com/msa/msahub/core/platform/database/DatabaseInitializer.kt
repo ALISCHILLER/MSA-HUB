@@ -16,7 +16,6 @@ class DatabaseInitializer(
     private val scope: CoroutineScope
 ) {
     fun seedIfNeeded() {
-        // P1: (Point 5) Only seed in DEBUG mode to prevent sample data in production
         if (!BuildConfig.DEBUG) {
             logger.d("Production build detected, skipping database seeding.")
             return
@@ -39,41 +38,19 @@ class DatabaseInitializer(
                         id = "device_001",
                         name = "Living Room Light",
                         type = "LIGHT",
-                        capabilities = listOf("ON_OFF", "DIMMING"),
-                        createdAt = now,
-                        updatedAt = now
+                        capabilitiesCsv = "ON_OFF,DIMMING",
+                        isFavorite = false,
+                        roomName = "Living Room",
+                        lastSeenMillis = now
                     ),
                     DeviceEntity(
                         id = "device_002",
                         name = "Thermostat",
                         type = "THERMOSTAT",
-                        capabilities = listOf("TEMPERATURE"),
-                        createdAt = now,
-                        updatedAt = now
-                    ),
-                    DeviceEntity(
-                        id = "device_003",
-                        name = "Front Door Sensor",
-                        type = "SENSOR",
-                        capabilities = listOf("MOTION"),
-                        createdAt = now,
-                        updatedAt = now
-                    ),
-                    DeviceEntity(
-                        id = "device_004",
-                        name = "Garage Door",
-                        type = "LOCK",
-                        capabilities = listOf("LOCK_UNLOCK"),
-                        createdAt = now,
-                        updatedAt = now
-                    ),
-                    DeviceEntity(
-                        id = "device_005",
-                        name = "Kitchen Switch",
-                        type = "SWITCH",
-                        capabilities = listOf("ON_OFF"),
-                        createdAt = now,
-                        updatedAt = now
+                        capabilitiesCsv = "TEMPERATURE",
+                        isFavorite = true,
+                        roomName = "Bedroom",
+                        lastSeenMillis = now
                     )
                 )
 
@@ -81,40 +58,32 @@ class DatabaseInitializer(
 
                 val sampleStates = listOf(
                     DeviceStateEntity(
+                        id = "state_001",
                         deviceId = "device_001",
                         isOnline = true,
-                        lastSeenAt = now - 10_000,
-                        stateJson = """{"brightness": 75, "power": "on"}"""
+                        isOn = true,
+                        brightness = 75,
+                        temperatureC = null,
+                        humidityPercent = null,
+                        batteryPercent = null,
+                        updatedAtMillis = now
                     ),
                     DeviceStateEntity(
+                        id = "state_002",
                         deviceId = "device_002",
                         isOnline = true,
-                        lastSeenAt = now - 30_000,
-                        stateJson = """{"temperature": 22.5, "mode": "cool"}"""
-                    ),
-                    DeviceStateEntity(
-                        deviceId = "device_003",
-                        isOnline = false,
-                        lastSeenAt = now - 3_600_000,
-                        stateJson = """{"motion": false, "battery": 85}"""
-                    ),
-                    DeviceStateEntity(
-                        deviceId = "device_004",
-                        isOnline = true,
-                        lastSeenAt = now - 5_000,
-                        stateJson = """{"locked": true, "battery": 90}"""
-                    ),
-                    DeviceStateEntity(
-                        deviceId = "device_005",
-                        isOnline = true,
-                        lastSeenAt = now - 15_000,
-                        stateJson = """{"state": "off"}"""
+                        isOn = false,
+                        brightness = null,
+                        temperatureC = 22.5,
+                        humidityPercent = 45.0,
+                        batteryPercent = 90,
+                        updatedAtMillis = now
                     )
                 )
 
                 sampleStates.forEach { deviceStateDao.upsert(it) }
 
-                logger.i("Database seeded with ${sampleDevices.size} devices and ${sampleStates.size} states")
+                logger.i("Database seeded successfully")
             }.onFailure { e ->
                 logger.e("Failed to seed database", e)
             }

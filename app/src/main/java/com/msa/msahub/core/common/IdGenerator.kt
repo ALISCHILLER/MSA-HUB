@@ -4,6 +4,7 @@ import java.util.UUID
 
 interface IdGenerator {
     fun uuid(): String
+    fun generate(): String = uuid()
 }
 
 class UUIDGenerator : IdGenerator {

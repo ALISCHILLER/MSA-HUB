@@ -8,20 +8,14 @@ import com.msa.msahub.core.security.keys.AndroidKeyManager
 import com.msa.msahub.core.security.keys.KeyManager
 import com.msa.msahub.core.security.storage.SecurePrefs
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 object SecurityModule {
     val module = module {
-        // استفاده از EncryptedSharedPreferences در قالب SecurePrefs
         single { SecurePrefs(androidContext()) }
-        
-        // مدیریت کلیدها با استفاده از Android KeyStore
         single<KeyManager> { AndroidKeyManager() }
-        
-        // جعبه ابزار رمزنگاری متقارن
         single<CryptoBox> { AesCryptoBox(get()) }
-        
-        // انبار امن توکن‌های احراز هویت
-        single<AuthTokenStore> { AuthTokenStoreImpl(get()) }
+        single<AuthTokenStore> { AuthTokenStoreImpl(get(), get(named("app_scope"))) }
     }
 }

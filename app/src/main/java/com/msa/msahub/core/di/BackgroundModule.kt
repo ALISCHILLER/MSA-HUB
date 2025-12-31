@@ -9,6 +9,6 @@ import org.koin.dsl.module
 object BackgroundModule {
     val module = module {
         single { WorkManager.getInstance(androidContext()) }
-        single<WorkScheduler> { WorkSchedulerImpl(androidContext(), get()) }
+        single<WorkScheduler> { WorkSchedulerImpl(androidContext(), get(), get()) }
     }
 }

@@ -11,14 +11,21 @@ class DeviceMqttHandler(
     private val mqttClient: MqttClient
 ) {
     suspend fun subscribeToState(deviceId: String) {
-        mqttClient.subscribe(DeviceMqttTopics.stateTopic(deviceId), qos = Qos.AtLeastOnce)
+        mqttClient.subscribe(DeviceMqttTopics.statusTopic(deviceId), qos = Qos.AtLeastOnce)
     }
 
     fun observeState(deviceId: String): Flow<DeviceMqttEvent> {
-        val topic = DeviceMqttTopics.stateTopic(deviceId)
+        val topic = DeviceMqttTopics.statusTopic(deviceId)
         return mqttClient.incomingMessages
             .filter { it.topic == topic }
-            .map { DeviceMqttEvent.StateUpdated(deviceId = deviceId, payload = it.payload) }
+            .map { message ->
+                DeviceStatusEvent(
+                    deviceId = deviceId,
+                    online = true,
+                    state = emptyMap(),
+                    timestamp = System.currentTimeMillis()
+                )
+            }
     }
 
     suspend fun publishCommand(topic: String, payload: ByteArray, qos: Qos, retained: Boolean) {

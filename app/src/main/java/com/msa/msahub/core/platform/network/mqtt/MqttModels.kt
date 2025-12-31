@@ -4,10 +4,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import javax.net.ssl.SSLContext
 
-/**
- * مرجع واحد تمام مدل‌ها و اینترفیس ارتباطی MQTT
- */
-
 enum class Qos(val value: Int) {
     AtMostOnce(0),
     AtLeastOnce(1),
@@ -24,7 +20,6 @@ data class MqttConfig(
     val cleanStart: Boolean = true,
     val keepAlive: Int = 60,
     val sslContext: SSLContext? = null,
-    // تنظیمات پایداری
     val maxReconnectDelayMs: Long = 60_000L,
     val initialReconnectDelayMs: Long = 1_000L
 )
@@ -41,7 +36,7 @@ sealed interface MqttConnectionState {
     data object Disconnected : MqttConnectionState
     data object Connecting : MqttConnectionState
     data object Connected : MqttConnectionState
-    data object Suspended : MqttConnectionState // زمانی که شبکه قطع است یا موقتاً غیرفعال شده
+    data object Suspended : MqttConnectionState
     data class Failed(val message: String, val cause: Throwable? = null) : MqttConnectionState
 }
 

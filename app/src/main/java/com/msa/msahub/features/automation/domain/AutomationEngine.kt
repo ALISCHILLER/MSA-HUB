@@ -7,6 +7,7 @@ import com.msa.msahub.features.automation.domain.model.*
 import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.core.common.IdGenerator
+import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.json.Json
@@ -16,6 +17,7 @@ import android.util.Base64
 class AutomationEngine(
     private val mqttClient: MqttClient,
     private val automationDao: AutomationDao,
+    private val deviceRepository: DeviceRepository,
     private val outbox: OfflineCommandOutbox,
     private val ids: IdGenerator,
     private val logger: Logger,
@@ -47,8 +49,6 @@ class AutomationEngine(
     private fun isTriggerMatched(trigger: AutomationTrigger, topic: String, payload: String): Boolean {
         return when (trigger) {
             is AutomationTrigger.DeviceStateChanged -> {
-                // منطق چک کردن تطابق Topic و Payload با Trigger
-                // مثال ساده: topic حاوی deviceId باشد و payload حاوی وضعیت جدید
                 topic.contains(trigger.deviceId) && payload.contains(trigger.attribute)
             }
             else -> false
@@ -59,18 +59,13 @@ class AutomationEngine(
         val actions = json.decodeFromString<List<AutomationAction>>(entity.actionsJson)
         
         for (action in actions) {
-            val commandId = ids.generate()
-            val command = OfflineCommandEntity(
-                id = commandId,
+            val cmd = com.msa.msahub.features.devices.domain.model.DeviceCommand(
                 deviceId = action.deviceId,
-                topic = "v1/devices/${action.deviceId}/command",
-                payloadBase64 = Base64.encodeToString(action.command.toByteArray(), Base64.NO_WRAP),
-                qos = 1,
-                retained = false,
+                action = action.command,
+                params = action.params,
                 createdAtMillis = System.currentTimeMillis()
             )
-            // ذخیره در Outbox برای ارسال خودکار
-            // نکته: در نسخه صنعتی، اینجا مستقیماً از طریق DAO ذخیره می‌کنیم تا Worker آن را بفرستد
+            deviceRepository.sendCommand(cmd)
             logger.i("Automation executing action for device: ${action.deviceId}")
         }
     }

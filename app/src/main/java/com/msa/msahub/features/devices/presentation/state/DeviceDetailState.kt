@@ -1,25 +1,31 @@
 package com.msa.msahub.features.devices.presentation.state
 
-import com.msa.msahub.core.common.AppError
+import com.msa.msahub.features.devices.domain.model.CommandAck
 import com.msa.msahub.features.devices.domain.model.Device
 import com.msa.msahub.features.devices.domain.model.DeviceCommand
+import com.msa.msahub.features.devices.domain.model.DeviceState
 
 data class DeviceDetailUiState(
+    val deviceId: String = "",
     val isLoading: Boolean = false,
     val device: Device? = null,
-    val error: AppError? = null,
-    val connectionStatus: ConnectionStatus = ConnectionStatus.OFFLINE,
+    val state: DeviceState? = null,
+    val errorMessage: String? = null
 )
 
 sealed interface DeviceDetailUiEvent {
-    data class LoadDevice(val deviceId: String) : DeviceDetailUiEvent
-    data class SendCommand(val command: DeviceCommand) : DeviceDetailUiEvent
+    data class SetDeviceId(val deviceId: String) : DeviceDetailUiEvent
+    data object Load : DeviceDetailUiEvent
+    data object Refresh : DeviceDetailUiEvent
+    data class SendCommand(val action: String) : DeviceDetailUiEvent
+    data object OpenHistory : DeviceDetailUiEvent
+    data object OpenSettings : DeviceDetailUiEvent
     data object Retry : DeviceDetailUiEvent
 }
 
 sealed interface DeviceDetailUiEffect {
-    data class ShowToast(val message: String) : DeviceDetailUiEffect
-    data class NavigateBack(val deviceId: String) : DeviceDetailUiEffect
+    data class ShowError(val message: String) : DeviceDetailUiEffect
+    data class NavigateToHistory(val deviceId: String) : DeviceDetailUiEffect
+    data class NavigateToSettings(val deviceId: String) : DeviceDetailUiEffect
+    data class CommandResult(val ack: CommandAck) : DeviceDetailUiEffect
 }
-
-enum class ConnectionStatus { CLOUD, WIFI_LOCAL, BLUETOOTH, OFFLINE }

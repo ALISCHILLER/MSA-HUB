@@ -38,7 +38,7 @@ class AddAutomationViewModel(
 
     override fun onEvent(event: AddAutomationEvent) {
         when (event) {
-            is AddAutomationEvent.UpdateName -> updateState { copy(name = name) }
+            is AddAutomationEvent.UpdateName -> updateState { copy(name = event.name) }
             is AddAutomationEvent.SetTrigger -> updateState { copy(trigger = event.trigger) }
             is AddAutomationEvent.SetCondition -> updateState { copy(condition = event.condition) }
             is AddAutomationEvent.AddAction -> updateState { copy(actions = actions + event.action) }
@@ -49,7 +49,7 @@ class AddAutomationViewModel(
     }
 
     private fun saveAutomation() {
-        val state = currentState
+        val state = uiState.value
         if (state.name.isBlank() || state.trigger == null || state.actions.isEmpty()) {
             viewModelScope.launch { emitEffect(AddAutomationEffect.ShowError("لطفاً تمام موارد ضروری را پر کنید")) }
             return
@@ -58,7 +58,7 @@ class AddAutomationViewModel(
         updateState { copy(isSaving = true) }
         viewModelScope.launch {
             val newAutomation = Automation(
-                id = ids.generate(),
+                id = ids.uuid(),
                 name = state.name,
                 trigger = state.trigger!!,
                 condition = state.condition,

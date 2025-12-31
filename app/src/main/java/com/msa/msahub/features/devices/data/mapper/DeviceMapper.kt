@@ -1,6 +1,7 @@
 package com.msa.msahub.features.devices.data.mapper
 
 import com.msa.msahub.features.devices.data.local.entity.DeviceEntity
+import com.msa.msahub.features.devices.data.remote.mqtt.DeviceStatusEvent
 import com.msa.msahub.features.devices.domain.model.Device
 import com.msa.msahub.features.devices.domain.model.DeviceCapability
 import com.msa.msahub.features.devices.domain.model.DeviceType
@@ -34,6 +35,18 @@ class DeviceMapper {
             isFavorite = entity.isFavorite,
             roomName = entity.roomName,
             lastSeenMillis = entity.lastSeenMillis
+        )
+    }
+
+    fun fromRemote(event: DeviceStatusEvent): Device {
+        return Device(
+            id = event.deviceId,
+            name = "Device ${event.deviceId}",
+            type = DeviceType.UNKNOWN,
+            capabilities = emptySet(),
+            isFavorite = false,
+            roomName = null,
+            lastSeenMillis = event.timestamp
         )
     }
 }

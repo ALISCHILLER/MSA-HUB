@@ -8,11 +8,6 @@ import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-/**
- * مسئول همگام‌سازی کامل داده‌ها:
- * ۱. دریافت آخرین لیست دستگاه‌ها
- * ۲. همگام‌سازی دستورات معلق (Outbox)
- */
 class SyncWorker(
     context: Context,
     params: WorkerParameters
@@ -25,11 +20,8 @@ class SyncWorker(
         logger.i("SyncWorker: Starting full synchronization...")
         
         return try {
-            // ۱. تلاش برای ارسال دستورات آفلاین (Outbox)
             deviceRepository.flushOutbox(max = 50)
-            
-            // ۲. دریافت جدیدترین وضعیت دستگاه‌ها از سرور
-            deviceRepository.getDevices(forceRefresh = true)
+            deviceRepository.syncDevices() // استفاده از متد صحیح
             
             logger.i("SyncWorker: Synchronization completed successfully.")
             Result.success()

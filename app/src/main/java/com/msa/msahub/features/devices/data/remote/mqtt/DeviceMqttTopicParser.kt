@@ -14,8 +14,8 @@ object DeviceMqttTopicParser {
 
         val deviceId = parts[1]
         return when (parts[2]) {
-            "state" -> DeviceMqttEvent.State(deviceId, payloadJson)
-            "ack" -> DeviceMqttEvent.Ack(deviceId, payloadJson)
+            "state" -> DeviceStatusEvent.fromJson(payloadJson)
+            "ack" -> DeviceAckEvent.fromJson(payloadJson)
             else -> null
         }
     }

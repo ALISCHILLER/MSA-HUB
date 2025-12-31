@@ -1,8 +1,11 @@
 package com.msa.msahub.features.devices.domain.model
 
+import java.util.UUID
+
 data class DeviceCommand(
     val deviceId: String,
-    val commandId: String,
     val action: String,
-    val payloadJson: String = "{}"
+    val params: Map<String, Any?> = emptyMap(),
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val commandId: String = UUID.randomUUID().toString()
 )

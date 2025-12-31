@@ -12,7 +12,8 @@ class PowerConnectedReceiver : BroadcastReceiver() {
             return
         }
 
-        val scheduler = GlobalContext.get().koin.get<WorkScheduler>()
+        // اصلاح نحوه فراخوانی Koin برای سازگاری با نسخه جدید
+        val scheduler = GlobalContext.get().get<WorkScheduler>()
         scheduler.scheduleDataCleanup()
         scheduler.scheduleAnalyticsUpload()
     }

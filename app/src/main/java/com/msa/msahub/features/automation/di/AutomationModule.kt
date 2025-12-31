@@ -1,28 +1,49 @@
 package com.msa.msahub.features.automation.di
 
 import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.data.local.dao.AutomationLogDao
 import com.msa.msahub.features.automation.domain.AutomationEngine
+import com.msa.msahub.features.automation.domain.repository.AutomationRepository
+import com.msa.msahub.features.automation.data.repository.AutomationRepositoryImpl
+import com.msa.msahub.features.automation.presentation.AutomationListViewModel
+import com.msa.msahub.features.automation.presentation.AddAutomationViewModel
+import com.msa.msahub.features.automation.presentation.log.AutomationLogViewModel
 import com.msa.msahub.core.di.AppScopeModule
+import com.msa.msahub.core.observability.NotificationHelper
+import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import org.koin.core.qualifier.named
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 object AutomationModule {
     val module = module {
-        // فراهم کردن DAO از دیتابیس اصلی
-        single { get<com.msa.msahub.core.platform.database.AppDatabase>().offlineCommandDao() } // برای استفاده در انجین
-        
-        // در صورتی که AutomationDao را به AppDatabase اضافه کردید:
-        // single { get<com.msa.msahub.core.platform.database.AppDatabase>().automationDao() }
+        // DAOs
+        single<AutomationDao> { get<com.msa.msahub.core.platform.database.AppDatabase>().automationDao() }
+        // Ensure this method exists in AppDatabase or fix call
+        single<AutomationLogDao> { get<com.msa.msahub.core.platform.database.AppDatabase>().automationLogDao() }
 
+        // Repository
+        single<AutomationRepository> { AutomationRepositoryImpl(get()) }
+
+        // Helper
+        single { NotificationHelper(get()) }
+
+        // Engine
         single {
             AutomationEngine(
                 mqttClient = get(),
-                automationDao = get(), // نیازمند اضافه شدن به AppDatabase
+                automationDao = get(),
+                deviceRepository = get<DeviceRepository>(),
                 outbox = get(),
                 ids = get(),
                 logger = get(),
-                scope = get(named(AppScopeModule.APP_SCOPE))
+                scope = get(AppScopeModule.APP_SCOPE)
             )
         }
+
+        // ViewModels
+        viewModel { AutomationListViewModel(get()) }
+        viewModel { AddAutomationViewModel(get(), get()) }
+        viewModel { AutomationLogViewModel(get()) }
     }
 }
