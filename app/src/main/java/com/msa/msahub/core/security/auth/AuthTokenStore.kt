@@ -1,14 +1,16 @@
 package com.msa.msahub.core.security.auth
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.StateFlow
 
 interface AuthTokenStore {
+    val tokenState: StateFlow<String?>
+
     suspend fun saveToken(token: String)
     suspend fun getToken(): String?
     suspend fun clearToken()
 
     /**
-     * دریافت توکن به صورت همگام (Synchronous) برای استفاده در اینترسپتورها
+     * Getter همگام و بدون بلاک برای استفاده در interceptor/defaultRequest
      */
-    fun getTokenSync(): String? = runBlocking { getToken() }
+    fun peekToken(): String? = tokenState.value
 }

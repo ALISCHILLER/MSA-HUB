@@ -1,7 +1,8 @@
 package com.msa.msahub.core.di
 
+import com.msa.msahub.BuildConfig
+import com.msa.msahub.app.AppConfig
 import com.msa.msahub.core.common.JsonProvider
-import com.msa.msahub.core.common.Logger
 import com.msa.msahub.core.platform.network.ConnectivityObserver
 import com.msa.msahub.core.platform.network.NetworkConnectivityObserver
 import com.msa.msahub.core.platform.network.http.KtorClientFactory
@@ -16,23 +17,39 @@ import org.koin.dsl.module
 
 object NetworkModule {
     val module = module {
-        // HTTP
-        single { NetworkConfig(baseUrl = "https://api.msahub.com") }
+        // HTTP Config
+        single {
+            val baseUrl = if (BuildConfig.DEBUG) AppConfig.API_BASE_URL_DEV else AppConfig.API_BASE_URL_PROD
+            NetworkConfig(baseUrl = baseUrl)
+        }
+        
         single { JsonProvider.json }
-        single { KtorClientFactory(get(), get()) }
+        
+        // Factory with Lambda for baseUrl to support dynamic changes if needed
+        single { 
+            KtorClientFactory(
+                json = get(),
+                authTokenStore = get(),
+                baseUrlProvider = { get<NetworkConfig>().baseUrl }
+            ) 
+        }
+        
         single<HttpClient> { get<KtorClientFactory>().create(get()) }
 
         // Connectivity
         single<ConnectivityObserver> { NetworkConnectivityObserver(androidContext()) }
 
-        // MQTT
+        // MQTT Config (P0: Security & Hardcode removal)
         single {
+            val isDebug = BuildConfig.DEBUG
             MqttConfig(
-                host = "broker.msahub.com",
-                port = 1883,
-                clientId = "msahub_android_${System.currentTimeMillis()}"
+                host = if (isDebug) AppConfig.MQTT_HOST_DEV else AppConfig.MQTT_HOST_PROD,
+                port = if (isDebug) 1883 else AppConfig.MQTT_PORT_TLS,
+                clientId = "msahub_android_${System.currentTimeMillis()}",
+                useTls = !isDebug // Enable TLS in production
             )
         }
+        
         single<MqttClient> { HiveMqttClientImpl() }
 
         // Connection Manager

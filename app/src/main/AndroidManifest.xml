@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".MsaApp"
@@ -39,13 +40,8 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".background.receivers.NetworkChangeReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
-            </intent-filter>
-        </receiver>
+        <!-- NetworkChangeReceiver removed as it's unreliable on modern Android. 
+             Connectivity is managed via WorkManager constraints and MqttConnectionManager. -->
 
         <receiver
             android:name=".background.receivers.PowerConnectedReceiver"

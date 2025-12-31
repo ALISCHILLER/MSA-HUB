@@ -2,6 +2,7 @@ package com.msa.msahub.core.platform.network.mqtt
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import javax.net.ssl.SSLContext
 
 /**
  * مرجع واحد تمام مدل‌ها و اینترفیس ارتباطی MQTT
@@ -21,7 +22,8 @@ data class MqttConfig(
     val password: String? = null,
     val useTls: Boolean = false,
     val cleanStart: Boolean = true,
-    val keepAlive: Int = 60
+    val keepAlive: Int = 60,
+    val sslContext: SSLContext? = null
 )
 
 data class MqttMessage(

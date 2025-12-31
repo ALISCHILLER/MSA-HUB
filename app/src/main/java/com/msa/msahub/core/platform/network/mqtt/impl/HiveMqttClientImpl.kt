@@ -1,37 +1,37 @@
 package com.msa.msahub.core.platform.network.mqtt.impl
 
 import com.hivemq.client.mqtt.MqttClient as HiveMqtt
-import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
+import com.hivemq.client.mqtt.mqtt5.Mqtt5GlobalPublishFilter
 import com.msa.msahub.core.platform.network.mqtt.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.future.await
 import timber.log.Timber
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 class HiveMqttClientImpl : MqttClient {
 
     private var client: Mqtt5AsyncClient? = null
-    
+
     private val _connectionState = MutableStateFlow<MqttConnectionState>(MqttConnectionState.Disconnected)
     override val connectionState: StateFlow<MqttConnectionState> = _connectionState.asStateFlow()
 
     private val _incomingMessages = MutableSharedFlow<MqttMessage>(
         replay = 0,
-        extraBufferCapacity = 100,
+        extraBufferCapacity = 200,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     override val incomingMessages: Flow<MqttMessage> = _incomingMessages.asSharedFlow()
 
-    // نگهداری لیست اشتراک‌ها برای Re-subscribe خودکار
     private val activeSubscriptions = ConcurrentHashMap<String, Qos>()
 
     override suspend fun connect(config: MqttConfig) {
-        if (_connectionState.value == MqttConnectionState.Connected) return
+        if (_connectionState.value == MqttConnectionState.Connected ||
+            _connectionState.value == MqttConnectionState.Connecting
+        ) return
 
         _connectionState.value = MqttConnectionState.Connecting
 
@@ -41,7 +41,16 @@ class HiveMqttClientImpl : MqttClient {
                 .identifier(config.clientId)
                 .serverHost(config.host)
                 .serverPort(config.port)
-                .automaticReconnectWithDefaultConfig() // فعال‌سازی Reconnect خودکار HiveMQ
+                .automaticReconnectWithDefaultConfig()
+
+            if (config.useTls) {
+                val ssl = config.sslContext
+                if (ssl != null) {
+                    builder.sslConfig().sslContext(ssl).applySslConfig()
+                } else {
+                    builder.sslWithDefaultConfig()
+                }
+            }
 
             if (config.username != null) {
                 builder.simpleAuth()
@@ -53,10 +62,10 @@ class HiveMqttClientImpl : MqttClient {
             val asyncClient = builder.buildAsync()
             client = asyncClient
 
-            // گوش دادن به تغییرات وضعیت اتصال در سطح کلاینت
-            asyncClient.toAsync().subscribeWith()
-                .callback { publish -> handleIncomingPublish(publish) }
-                .send()
+            // استفاده از Global Publish Listener برای پایداری دریافت پیام
+            asyncClient.publishes(Mqtt5GlobalPublishFilter.ALL) { publish ->
+                handleIncomingPublish(publish)
+            }
 
             val connAck: Mqtt5ConnAck = asyncClient.connectWith()
                 .cleanStart(config.cleanStart)
@@ -67,9 +76,7 @@ class HiveMqttClientImpl : MqttClient {
             _connectionState.value = MqttConnectionState.Connected
             Timber.i("MQTT Connected: ${connAck.reasonCode}")
 
-            // Re-subscribe to existing topics if any
             reSubscribeAll()
-
         } catch (e: Exception) {
             Timber.e(e, "MQTT Connection Failed")
             _connectionState.value = MqttConnectionState.Error("Connection failed: ${e.message}", e)
@@ -77,39 +84,39 @@ class HiveMqttClientImpl : MqttClient {
     }
 
     override suspend fun disconnect() {
-        client?.disconnect()?.await()
+        runCatching { client?.disconnect()?.await() }
+        client = null
         _connectionState.value = MqttConnectionState.Disconnected
     }
 
     override suspend fun subscribe(topic: String, qos: Qos) {
         activeSubscriptions[topic] = qos
         client?.subscribeWith()
-            .topicFilter(topic)
-            .qos(mapQos(qos))
-            .send()
+            ?.topicFilter(topic)
+            ?.qos(mapQos(qos))
+            ?.send()
             ?.await()
     }
 
     override suspend fun unsubscribe(topic: String) {
         activeSubscriptions.remove(topic)
         client?.unsubscribeWith()
-            .topicFilter(topic)
-            .send()
+            ?.topicFilter(topic)
+            ?.send()
             ?.await()
     }
 
     override suspend fun publish(message: MqttMessage) {
-        val publishBuilder = client?.publishWith()
+        client?.publishWith()
             ?.topic(message.topic)
             ?.payload(message.payload)
             ?.qos(mapQos(message.qos))
             ?.retain(message.retained)
-
-        message.correlationId?.let {
-            publishBuilder?.correlationData(it.toByteArray())
-        }
-
-        publishBuilder?.send()?.await()
+            ?.apply {
+                message.correlationId?.let { correlationData(it.toByteArray()) }
+            }
+            ?.send()
+            ?.await()
     }
 
     private fun handleIncomingPublish(publish: Mqtt5Publish) {
@@ -129,20 +136,18 @@ class HiveMqttClientImpl : MqttClient {
     }
 
     private suspend fun reSubscribeAll() {
-        activeSubscriptions.forEach { (topic, qos) ->
-            subscribe(topic, qos)
-        }
+        activeSubscriptions.forEach { (topic, qos) -> subscribe(topic, qos) }
     }
 
-    private fun mapQos(qos: Qos): MqttQos = when (qos) {
-        Qos.AtMostOnce -> MqttQos.AT_MOST_ONCE
-        Qos.AtLeastOnce -> MqttQos.AT_LEAST_ONCE
-        Qos.ExactlyOnce -> MqttQos.EXACTLY_ONCE
+    private fun mapQos(qos: Qos): com.hivemq.client.mqtt.datatypes.MqttQos = when (qos) {
+        Qos.AtMostOnce -> com.hivemq.client.mqtt.datatypes.MqttQos.AT_MOST_ONCE
+        Qos.AtLeastOnce -> com.hivemq.client.mqtt.datatypes.MqttQos.AT_LEAST_ONCE
+        Qos.ExactlyOnce -> com.hivemq.client.mqtt.datatypes.MqttQos.EXACTLY_ONCE
     }
 
-    private fun mapFromHiveQos(qos: MqttQos): Qos = when (qos) {
-        MqttQos.AT_MOST_ONCE -> Qos.AtMostOnce
-        MqttQos.AT_LEAST_ONCE -> Qos.AtLeastOnce
-        MqttQos.EXACTLY_ONCE -> Qos.ExactlyOnce
+    private fun mapFromHiveQos(qos: com.hivemq.client.mqtt.datatypes.MqttQos): Qos = when (qos) {
+        com.hivemq.client.mqtt.datatypes.MqttQos.AT_MOST_ONCE -> Qos.AtMostOnce
+        com.hivemq.client.mqtt.datatypes.MqttQos.AT_LEAST_ONCE -> Qos.AtLeastOnce
+        com.hivemq.client.mqtt.datatypes.MqttQos.EXACTLY_ONCE -> Qos.ExactlyOnce
     }
 }

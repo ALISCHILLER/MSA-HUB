@@ -1,5 +1,6 @@
 package com.msa.msahub.core.platform.database
 
+import com.msa.msahub.BuildConfig
 import com.msa.msahub.core.common.Logger
 import com.msa.msahub.features.devices.data.local.dao.DeviceDao
 import com.msa.msahub.features.devices.data.local.dao.DeviceStateDao
@@ -15,6 +16,12 @@ class DatabaseInitializer(
     private val scope: CoroutineScope
 ) {
     fun seedIfNeeded() {
+        // P1: (Point 5) Only seed in DEBUG mode to prevent sample data in production
+        if (!BuildConfig.DEBUG) {
+            logger.d("Production build detected, skipping database seeding.")
+            return
+        }
+
         scope.launch {
             runCatching {
                 val count = deviceDao.count()
@@ -23,7 +30,7 @@ class DatabaseInitializer(
                     return@launch
                 }
 
-                logger.d("Seeding database with initial devices")
+                logger.d("Seeding database with initial devices (DEBUG MODE ONLY)")
 
                 val now = System.currentTimeMillis()
                 

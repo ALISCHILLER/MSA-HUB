@@ -7,6 +7,7 @@ import com.msa.msahub.core.platform.network.mqtt.Qos
 import com.msa.msahub.features.devices.data.local.dao.OfflineCommandDao
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
+import timber.log.Timber
 
 class OfflineCommandOutbox(
     private val dao: OfflineCommandDao,
@@ -15,25 +16,36 @@ class OfflineCommandOutbox(
 
     /**
      * Tries to send up to [max] queued commands.
-     * Returns number of successfully sent commands.
+     * Implements retry logic and industrial error handling.
      */
     suspend fun flush(max: Int = 50): Result<Int> {
         return try {
-            val all = dao.getAll().take(max)
+            val pending = dao.getPending(limit = max, maxAttempts = MAX_ATTEMPTS)
             var sent = 0
 
-            for (cmd in all) {
-                val ok = runCatching { publish(cmd) }.isSuccess
-                if (ok) {
+            for (cmd in pending) {
+                val result = runCatching { publish(cmd) }
+                
+                if (result.isSuccess) {
                     dao.deleteById(cmd.id)
                     sent++
                 } else {
-                    // keep it in outbox; optionally you can implement attempts++ update later
+                    val error = result.exceptionOrNull()
+                    Timber.e(error, "Failed to flush command ${cmd.id}")
+                    
+                    // Industrial Outbox: Update attempts and last error instead of just ignoring
+                    dao.update(
+                        cmd.copy(
+                            attempts = cmd.attempts + 1,
+                            lastError = error?.message ?: "Unknown MQTT error"
+                        )
+                    )
                 }
             }
 
             Result.Success(sent)
         } catch (t: Throwable) {
+            Timber.e(t, "Critical failure during outbox flush")
             Result.Failure(AppError.Mqtt("Failed to flush offline outbox", t))
         }
     }
@@ -52,5 +64,9 @@ class OfflineCommandOutbox(
         0 -> Qos.AtMostOnce
         2 -> Qos.ExactlyOnce
         else -> Qos.AtLeastOnce
+    }
+
+    companion object {
+        private const val MAX_ATTEMPTS = 5
     }
 }

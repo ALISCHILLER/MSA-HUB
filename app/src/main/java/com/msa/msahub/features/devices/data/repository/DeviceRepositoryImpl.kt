@@ -1,6 +1,5 @@
 package com.msa.msahub.features.devices.data.repository
 
-import android.util.Base64
 import com.msa.msahub.core.common.AppError
 import com.msa.msahub.core.common.Result
 import com.msa.msahub.core.platform.network.mqtt.Qos
@@ -9,6 +8,7 @@ import com.msa.msahub.features.devices.data.mapper.*
 import com.msa.msahub.features.devices.data.remote.api.DeviceApiService
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttTopics
+import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
 import com.msa.msahub.features.devices.domain.model.*
 import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +22,7 @@ class DeviceRepositoryImpl(
     private val deviceHistoryDao: DeviceHistoryDao,
     private val api: DeviceApiService,
     private val mqttHandler: DeviceMqttHandler,
+    private val outbox: OfflineCommandOutbox, // تزریق Outbox واحد
     private val deviceMapper: DeviceMapper,
     private val deviceStateMapper: DeviceStateMapper,
     private val commandMapper: DeviceCommandMapper
@@ -95,22 +96,11 @@ class DeviceRepositoryImpl(
         Result.Failure(AppError.Mqtt("Send failed", t))
     }
 
-    override suspend fun flushOutbox(max: Int): Result<Int> = try {
-        val pending = offlineCommandDao.getAllPending().take(max)
-        pending.forEach {
-            val payload = Base64.decode(it.payloadBase64, Base64.NO_WRAP)
-            val qos = when (it.qos) {
-                0 -> Qos.AtMostOnce
-                1 -> Qos.AtLeastOnce
-                2 -> Qos.ExactlyOnce
-                else -> Qos.AtLeastOnce
-            }
-
-            mqttHandler.publishCommand(it.topic, payload, qos, it.retained)
-            offlineCommandDao.delete(it.id)
-        }
-        Result.Success(pending.size)
-    } catch (t: Throwable) {
-        Result.Failure(AppError.Database("Flush failed", t))
+    /**
+     * P1: Unify Outbox flush (Point 3). 
+     * Delegating to the industrial OfflineCommandOutbox.
+     */
+    override suspend fun flushOutbox(max: Int): Result<Int> {
+        return outbox.flush(max)
     }
 }
