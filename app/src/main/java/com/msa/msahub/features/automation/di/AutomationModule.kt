@@ -19,7 +19,6 @@ object AutomationModule {
     val module = module {
         // DAOs
         single<AutomationDao> { get<com.msa.msahub.core.platform.database.AppDatabase>().automationDao() }
-        // Ensure this method exists in AppDatabase or fix call
         single<AutomationLogDao> { get<com.msa.msahub.core.platform.database.AppDatabase>().automationLogDao() }
 
         // Repository
@@ -33,11 +32,13 @@ object AutomationModule {
             AutomationEngine(
                 mqttClient = get(),
                 automationDao = get(),
+                logDao = get(),
                 deviceRepository = get<DeviceRepository>(),
                 outbox = get(),
+                notificationHelper = get(),
                 ids = get(),
                 logger = get(),
-                scope = get(AppScopeModule.APP_SCOPE)
+                scope = get<kotlinx.coroutines.CoroutineScope>(named(AppScopeModule.APP_SCOPE))
             )
         }
 

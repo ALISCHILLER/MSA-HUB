@@ -84,12 +84,14 @@ class HiveMqttClientImpl : MqttClient {
         }
     }
 
-    override suspend fun disconnect() = clientMutex.withLock {
-        try {
-            client?.disconnect()?.await()
-        } finally {
-            client = null
-            _connectionState.value = MqttConnectionState.Disconnected
+    override suspend fun disconnect() {
+        clientMutex.withLock {
+            try {
+                client?.disconnect()?.await()
+            } finally {
+                client = null
+                _connectionState.value = MqttConnectionState.Disconnected
+            }
         }
     }
 

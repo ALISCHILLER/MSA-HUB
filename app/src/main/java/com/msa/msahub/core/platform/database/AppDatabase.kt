@@ -14,7 +14,9 @@ import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.scenes.data.local.dao.SceneDao
 import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
 import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.data.local.dao.AutomationLogDao
 import com.msa.msahub.features.automation.data.local.entity.AutomationEntity
+import com.msa.msahub.features.automation.data.local.entity.AutomationLogEntity
 
 @Database(
     entities = [
@@ -23,7 +25,8 @@ import com.msa.msahub.features.automation.data.local.entity.AutomationEntity
         DeviceHistoryEntity::class,
         OfflineCommandEntity::class,
         SceneEntity::class,
-        AutomationEntity::class
+        AutomationEntity::class,
+        AutomationLogEntity::class
     ],
     version = 4,
     exportSchema = false
@@ -36,4 +39,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun offlineCommandDao(): OfflineCommandDao
     abstract fun sceneDao(): SceneDao
     abstract fun automationDao(): AutomationDao
+    abstract fun automationLogDao(): AutomationLogDao
 }

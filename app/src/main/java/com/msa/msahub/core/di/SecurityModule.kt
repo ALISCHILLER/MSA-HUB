@@ -13,9 +13,16 @@ import org.koin.dsl.module
 
 object SecurityModule {
     val module = module {
+        // استفاده از EncryptedSharedPreferences در قالب SecurePrefs
         single { SecurePrefs(androidContext()) }
+        
+        // مدیریت کلیدها با استفاده از Android KeyStore
         single<KeyManager> { AndroidKeyManager() }
+        
+        // جعبه ابزار رمزنگاری متقارن
         single<CryptoBox> { AesCryptoBox(get()) }
+        
+        // انبار امن توکن‌های احراز هویت
         single<AuthTokenStore> { AuthTokenStoreImpl(get(), get(named("app_scope"))) }
     }
 }

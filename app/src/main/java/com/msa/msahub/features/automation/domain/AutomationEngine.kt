@@ -3,22 +3,26 @@ package com.msa.msahub.features.automation.domain
 import com.msa.msahub.core.common.Logger
 import com.msa.msahub.core.platform.network.mqtt.MqttClient
 import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.data.local.dao.AutomationLogDao
 import com.msa.msahub.features.automation.domain.model.*
+import com.msa.msahub.features.automation.data.local.entity.AutomationLogEntity
 import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
-import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.core.common.IdGenerator
 import com.msa.msahub.features.devices.domain.repository.DeviceRepository
+import com.msa.msahub.features.devices.domain.model.DeviceCommand as DomainDeviceCommand
+import com.msa.msahub.core.observability.NotificationHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
-import android.util.Base64
 
 class AutomationEngine(
     private val mqttClient: MqttClient,
     private val automationDao: AutomationDao,
+    private val logDao: AutomationLogDao,
     private val deviceRepository: DeviceRepository,
     private val outbox: OfflineCommandOutbox,
+    private val notificationHelper: NotificationHelper,
     private val ids: IdGenerator,
     private val logger: Logger,
     private val scope: CoroutineScope
@@ -59,13 +63,29 @@ class AutomationEngine(
         val actions = json.decodeFromString<List<AutomationAction>>(entity.actionsJson)
         
         for (action in actions) {
-            val cmd = com.msa.msahub.features.devices.domain.model.DeviceCommand(
+            val cmd = DomainDeviceCommand(
                 deviceId = action.deviceId,
                 action = action.command,
                 params = action.params,
                 createdAtMillis = System.currentTimeMillis()
             )
             deviceRepository.sendCommand(cmd)
+            
+            // ثبت لاگ
+            logDao.insert(AutomationLogEntity(
+                id = ids.uuid(),
+                automationId = entity.id,
+                automationName = entity.name,
+                status = "SUCCESS",
+                detail = "اجرای دستور ${action.command} برای دستگاه ${action.deviceId}"
+            ))
+            
+            // نمایش نوتیفیکیشن
+            notificationHelper.showAutomationNotification(
+                "اتوماسیون اجرا شد",
+                "سناریوی '${entity.name}' با موفقیت انجام شد."
+            )
+            
             logger.i("Automation executing action for device: ${action.deviceId}")
         }
     }
