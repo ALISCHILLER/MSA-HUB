@@ -13,6 +13,8 @@ import com.msa.msahub.features.devices.data.local.entity.DeviceStateEntity
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.scenes.data.local.dao.SceneDao
 import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
+import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.data.local.entity.AutomationEntity
 
 @Database(
     entities = [
@@ -20,9 +22,10 @@ import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
         DeviceStateEntity::class,
         DeviceHistoryEntity::class,
         OfflineCommandEntity::class,
-        SceneEntity::class
+        SceneEntity::class,
+        AutomationEntity::class
     ],
-    version = 3, // ارتقا ورژن به دلیل تغییرات ساختاری
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(RoomConverters::class)
@@ -32,4 +35,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deviceHistoryDao(): DeviceHistoryDao
     abstract fun offlineCommandDao(): OfflineCommandDao
     abstract fun sceneDao(): SceneDao
+    abstract fun automationDao(): AutomationDao
 }

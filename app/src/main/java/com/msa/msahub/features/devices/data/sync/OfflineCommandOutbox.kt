@@ -2,50 +2,60 @@ package com.msa.msahub.features.devices.data.sync
 
 import android.util.Base64
 import com.msa.msahub.core.common.AppError
+import com.msa.msahub.core.common.Clock
+import com.msa.msahub.core.common.Logger
 import com.msa.msahub.core.common.Result
 import com.msa.msahub.core.platform.network.mqtt.Qos
 import com.msa.msahub.features.devices.data.local.dao.OfflineCommandDao
+import com.msa.msahub.features.devices.data.local.entity.CommandStatus
 import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
-import timber.log.Timber
 
+/**
+ * پیاده‌سازی صنعتی Outbox Pattern برای تضمین ارسال فرمان‌ها با مدیریت وضعیت و تکرار.
+ */
 class OfflineCommandOutbox(
     private val dao: OfflineCommandDao,
-    private val mqttHandler: DeviceMqttHandler
+    private val mqttHandler: DeviceMqttHandler,
+    private val clock: Clock,
+    private val logger: Logger
 ) {
 
-    /**
-     * Tries to send up to [max] queued commands.
-     * Implements retry logic and industrial error handling.
-     */
     suspend fun flush(max: Int = 50): Result<Int> {
         return try {
-            val pending = dao.getPending(limit = max, maxAttempts = MAX_ATTEMPTS)
-            var sent = 0
+            val pending = dao.getPendingCommands(limit = max)
+            if (pending.isEmpty()) return Result.Success(0)
+
+            logger.d("Flushing ${pending.size} commands from outbox")
+            
+            // ۱. تغییر وضعیت به SENDING برای جلوگیری از تداخل Workerها
+            val ids = pending.map { it.id }
+            dao.updateStatus(ids, CommandStatus.SENDING, clock.currentTimeMillis())
+
+            var sentCount = 0
 
             for (cmd in pending) {
                 val result = runCatching { publish(cmd) }
-                
+                val now = clock.currentTimeMillis()
+
                 if (result.isSuccess) {
-                    dao.deleteById(cmd.id)
-                    sent++
+                    dao.markAsSent(cmd.id, now)
+                    sentCount++
                 } else {
                     val error = result.exceptionOrNull()
-                    Timber.e(error, "Failed to flush command ${cmd.id}")
+                    logger.e("Failed to send command ${cmd.id}", error)
                     
-                    // Industrial Outbox: Update attempts and last error instead of just ignoring
-                    dao.update(
-                        cmd.copy(
-                            attempts = cmd.attempts + 1,
-                            lastError = error?.message ?: "Unknown MQTT error"
-                        )
-                    )
+                    if (cmd.attempts + 1 >= cmd.maxAttempts) {
+                        dao.markAsPermanentlyFailed(cmd.id, error?.message, now)
+                    } else {
+                        dao.markAsFailedAndRetry(cmd.id, error?.message, now)
+                    }
                 }
             }
 
-            Result.Success(sent)
+            Result.Success(sentCount)
         } catch (t: Throwable) {
-            Timber.e(t, "Critical failure during outbox flush")
+            logger.e("Critical failure during outbox flush", t)
             Result.Failure(AppError.Mqtt("Failed to flush offline outbox", t))
         }
     }
@@ -64,9 +74,5 @@ class OfflineCommandOutbox(
         0 -> Qos.AtMostOnce
         2 -> Qos.ExactlyOnce
         else -> Qos.AtLeastOnce
-    }
-
-    companion object {
-        private const val MAX_ATTEMPTS = 5
     }
 }

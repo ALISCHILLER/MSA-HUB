@@ -1,0 +1,71 @@
+package com.msa.msahub.features.automation.presentation
+
+import androidx.lifecycle.viewModelScope
+import com.msa.msahub.core.common.IdGenerator
+import com.msa.msahub.core.ui.mvi.BaseViewModel
+import com.msa.msahub.features.automation.domain.model.*
+import com.msa.msahub.features.automation.domain.repository.AutomationRepository
+import kotlinx.coroutines.launch
+
+data class AddAutomationState(
+    val currentStep: Int = 1,
+    val name: String = "",
+    val trigger: AutomationTrigger? = null,
+    val condition: AutomationCondition? = null,
+    val actions: List<AutomationAction> = emptyList(),
+    val isSaving: Boolean = false
+)
+
+sealed interface AddAutomationEvent {
+    data class UpdateName(val name: String) : AddAutomationEvent
+    data class SetTrigger(val trigger: AutomationTrigger) : AddAutomationEvent
+    data class SetCondition(val condition: AutomationCondition?) : AddAutomationEvent
+    data class AddAction(val action: AutomationAction) : AddAutomationEvent
+    data object NextStep : AddAutomationEvent
+    data object PreviousStep : AddAutomationEvent
+    data object Save : AddAutomationEvent
+}
+
+sealed interface AddAutomationEffect {
+    data object NavigateBack : AddAutomationEffect
+    data class ShowError(val message: String) : AddAutomationEffect
+}
+
+class AddAutomationViewModel(
+    private val repository: AutomationRepository,
+    private val ids: IdGenerator
+) : BaseViewModel<AddAutomationState, AddAutomationEvent, AddAutomationEffect>(AddAutomationState()) {
+
+    override fun onEvent(event: AddAutomationEvent) {
+        when (event) {
+            is AddAutomationEvent.UpdateName -> updateState { copy(name = name) }
+            is AddAutomationEvent.SetTrigger -> updateState { copy(trigger = event.trigger) }
+            is AddAutomationEvent.SetCondition -> updateState { copy(condition = event.condition) }
+            is AddAutomationEvent.AddAction -> updateState { copy(actions = actions + event.action) }
+            AddAutomationEvent.NextStep -> updateState { copy(currentStep = (currentStep + 1).coerceAtMost(3)) }
+            AddAutomationEvent.PreviousStep -> updateState { copy(currentStep = (currentStep - 1).coerceAtLeast(1)) }
+            AddAutomationEvent.Save -> saveAutomation()
+        }
+    }
+
+    private fun saveAutomation() {
+        val state = currentState
+        if (state.name.isBlank() || state.trigger == null || state.actions.isEmpty()) {
+            viewModelScope.launch { emitEffect(AddAutomationEffect.ShowError("لطفاً تمام موارد ضروری را پر کنید")) }
+            return
+        }
+
+        updateState { copy(isSaving = true) }
+        viewModelScope.launch {
+            val newAutomation = Automation(
+                id = ids.generate(),
+                name = state.name,
+                trigger = state.trigger!!,
+                condition = state.condition,
+                actions = state.actions
+            )
+            repository.saveAutomation(newAutomation)
+            emitEffect(AddAutomationEffect.NavigateBack)
+        }
+    }
+}

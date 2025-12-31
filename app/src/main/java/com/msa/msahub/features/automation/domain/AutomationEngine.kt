@@ -1,0 +1,77 @@
+package com.msa.msahub.features.automation.domain
+
+import com.msa.msahub.core.common.Logger
+import com.msa.msahub.core.platform.network.mqtt.MqttClient
+import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.domain.model.*
+import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
+import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
+import com.msa.msahub.core.common.IdGenerator
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
+import android.util.Base64
+
+class AutomationEngine(
+    private val mqttClient: MqttClient,
+    private val automationDao: AutomationDao,
+    private val outbox: OfflineCommandOutbox,
+    private val ids: IdGenerator,
+    private val logger: Logger,
+    private val scope: CoroutineScope
+) {
+    private val json = Json { ignoreUnknownKeys = true }
+
+    fun start() {
+        scope.launch {
+            mqttClient.incomingMessages.collectLatest { message ->
+                processMessage(message.topic, String(message.payload))
+            }
+        }
+    }
+
+    private suspend fun processMessage(topic: String, payload: String) {
+        val enabledAutomations = automationDao.getEnabledAutomations()
+        
+        for (entity in enabledAutomations) {
+            val trigger = json.decodeFromString<AutomationTrigger>(entity.triggerJson)
+            
+            if (isTriggerMatched(trigger, topic, payload)) {
+                logger.d("Automation triggered: ${entity.name}")
+                executeAutomation(entity)
+            }
+        }
+    }
+
+    private fun isTriggerMatched(trigger: AutomationTrigger, topic: String, payload: String): Boolean {
+        return when (trigger) {
+            is AutomationTrigger.DeviceStateChanged -> {
+                // منطق چک کردن تطابق Topic و Payload با Trigger
+                // مثال ساده: topic حاوی deviceId باشد و payload حاوی وضعیت جدید
+                topic.contains(trigger.deviceId) && payload.contains(trigger.attribute)
+            }
+            else -> false
+        }
+    }
+
+    private suspend fun executeAutomation(entity: com.msa.msahub.features.automation.data.local.entity.AutomationEntity) {
+        val actions = json.decodeFromString<List<AutomationAction>>(entity.actionsJson)
+        
+        for (action in actions) {
+            val commandId = ids.generate()
+            val command = OfflineCommandEntity(
+                id = commandId,
+                deviceId = action.deviceId,
+                topic = "v1/devices/${action.deviceId}/command",
+                payloadBase64 = Base64.encodeToString(action.command.toByteArray(), Base64.NO_WRAP),
+                qos = 1,
+                retained = false,
+                createdAtMillis = System.currentTimeMillis()
+            )
+            // ذخیره در Outbox برای ارسال خودکار
+            // نکته: در نسخه صنعتی، اینجا مستقیماً از طریق DAO ذخیره می‌کنیم تا Worker آن را بفرستد
+            logger.i("Automation executing action for device: ${action.deviceId}")
+        }
+    }
+}

@@ -1,8 +1,7 @@
 package com.msa.msahub.core.di
 
-import com.msa.msahub.BuildConfig
-import com.msa.msahub.app.AppConfig
 import com.msa.msahub.core.common.JsonProvider
+import com.msa.msahub.core.platform.config.AppConfigStore
 import com.msa.msahub.core.platform.network.ConnectivityObserver
 import com.msa.msahub.core.platform.network.NetworkConnectivityObserver
 import com.msa.msahub.core.platform.network.http.KtorClientFactory
@@ -11,59 +10,58 @@ import com.msa.msahub.core.platform.network.mqtt.*
 import com.msa.msahub.core.platform.network.mqtt.impl.HiveMqttClientImpl
 import com.msa.msahub.features.devices.data.remote.mqtt.MqttIngestor
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 object NetworkModule {
     val module = module {
-        // HTTP Config
-        single {
-            val baseUrl = if (BuildConfig.DEBUG) AppConfig.API_BASE_URL_DEV else AppConfig.API_BASE_URL_PROD
-            NetworkConfig(baseUrl = baseUrl)
-        }
+        
+        // تنظیمات داینامیک
+        single { AppConfigStore(androidContext()) }
         
         single { JsonProvider.json }
         
-        // Factory with Lambda for baseUrl to support dynamic changes if needed
         single { 
             KtorClientFactory(
                 json = get(),
                 authTokenStore = get(),
-                baseUrlProvider = { get<NetworkConfig>().baseUrl }
+                baseUrlProvider = { "https://api.msa-hub.com/v1/" } // قابل انتقال به AppConfigStore
             ) 
         }
         
         single<HttpClient> { get<KtorClientFactory>().create(get()) }
 
-        // Connectivity
         single<ConnectivityObserver> { NetworkConnectivityObserver(androidContext()) }
 
-        // MQTT Config (P0: Security & Hardcode removal)
-        single {
-            val isDebug = BuildConfig.DEBUG
-            MqttConfig(
-                host = if (isDebug) AppConfig.MQTT_HOST_DEV else AppConfig.MQTT_HOST_PROD,
-                port = if (isDebug) 1883 else AppConfig.MQTT_PORT_TLS,
-                clientId = "msahub_android_${System.currentTimeMillis()}",
-                useTls = !isDebug // Enable TLS in production
-            )
-        }
-        
+        // MQTT Components
         single<MqttClient> { HiveMqttClientImpl() }
+        factory { BackoffPolicy() }
 
-        // Connection Manager
         single {
             MqttConnectionManager(
                 mqttClient = get(),
-                config = get(),
+                configProvider = {
+                    val runtime = get<AppConfigStore>().observe().first()
+                    val m = runtime.mqtt
+                    MqttConfig(
+                        host = m.host,
+                        port = m.port,
+                        clientId = "${m.clientIdPrefix}_${System.currentTimeMillis()}",
+                        username = m.username,
+                        password = m.password,
+                        useTls = m.useTls,
+                        keepAlive = m.keepAliveSec
+                    )
+                },
                 connectivityObserver = get(),
                 scope = get(named("app_scope")),
-                logger = get()
+                logger = get(),
+                backoff = get()
             )
         }
 
-        // MQTT Ingestor
         single {
             MqttIngestor(
                 mqttClient = get(),

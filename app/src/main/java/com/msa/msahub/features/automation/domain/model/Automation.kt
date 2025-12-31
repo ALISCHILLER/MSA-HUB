@@ -1,29 +1,47 @@
 package com.msa.msahub.features.automation.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Automation(
     val id: String,
     val name: String,
-    val enabled: Boolean = true,
+    val isEnabled: Boolean = true,
     val trigger: AutomationTrigger,
-    val actions: List<String>, // لیست ID صحنه‌هایی که باید اجرا شوند
-    val createdAt: Long = System.currentTimeMillis()
+    val condition: AutomationCondition? = null,
+    val actions: List<AutomationAction>
 )
 
+@Serializable
 sealed interface AutomationTrigger {
-    data class DeviceState(
+    @Serializable
+    data class DeviceStateChanged(
         val deviceId: String,
-        val key: String, // مثلاً "temperature" یا "motion"
+        val attribute: String,
+        val from: String? = null,
+        val to: String? = null
+    ) : AutomationTrigger
+    
+    @Serializable
+    data class TimeSchedule(val cronExpression: String) : AutomationTrigger
+}
+
+@Serializable
+sealed interface AutomationCondition {
+    @Serializable
+    data class DeviceAttributeValue(
+        val deviceId: String,
+        val attribute: String,
         val operator: Operator,
         val value: String
-    ) : AutomationTrigger
+    ) : AutomationCondition
 
-    data class Time(
-        val hour: Int,
-        val minute: Int,
-        val daysOfWeek: List<Int>
-    ) : AutomationTrigger
+    enum class Operator { EQUAL, NOT_EQUAL, GREATER_THAN, LESS_THAN }
 }
 
-enum class Operator {
-    EQUALS, GREATER_THAN, LESS_THAN, CONTAINS
-}
+@Serializable
+data class AutomationAction(
+    val deviceId: String,
+    val command: String,
+    val params: Map<String, String> = emptyMap()
+)

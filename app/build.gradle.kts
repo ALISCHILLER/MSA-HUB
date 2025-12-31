@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "com.msa.msahub"
-    compileSdk = 35
+    compileSdk = 36 // ارتقا به نسخه ۳۶ برای سازگاری با کتابخانه‌های جدید
 
     defaultConfig {
         applicationId = "com.msa.msahub"
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 35 // targetSdk می‌تواند ۳۵ باقی بماند
         versionCode = 1
         versionName = "1.0"
 

@@ -23,7 +23,10 @@ data class MqttConfig(
     val useTls: Boolean = false,
     val cleanStart: Boolean = true,
     val keepAlive: Int = 60,
-    val sslContext: SSLContext? = null
+    val sslContext: SSLContext? = null,
+    // تنظیمات پایداری
+    val maxReconnectDelayMs: Long = 60_000L,
+    val initialReconnectDelayMs: Long = 1_000L
 )
 
 data class MqttMessage(
@@ -31,32 +34,24 @@ data class MqttMessage(
     val payload: ByteArray,
     val qos: Qos = Qos.AtLeastOnce,
     val retained: Boolean = false,
-    val correlationId: String? = null // برای رهگیری فرمان‌ها
+    val correlationId: String? = null
 )
 
 sealed interface MqttConnectionState {
     data object Disconnected : MqttConnectionState
     data object Connecting : MqttConnectionState
     data object Connected : MqttConnectionState
-    data class Error(val message: String, val cause: Throwable? = null) : MqttConnectionState
+    data object Suspended : MqttConnectionState // زمانی که شبکه قطع است یا موقتاً غیرفعال شده
+    data class Failed(val message: String, val cause: Throwable? = null) : MqttConnectionState
 }
 
 interface MqttClient {
-    /**
-     * وضعیت لحظه‌ای اتصال به بروکر
-     */
     val connectionState: StateFlow<MqttConnectionState>
-
-    /**
-     * جریان پیام‌های دریافتی از تمام Topicهای Subscribe شده
-     */
     val incomingMessages: Flow<MqttMessage>
 
     suspend fun connect(config: MqttConfig)
     suspend fun disconnect()
-
     suspend fun subscribe(topic: String, qos: Qos = Qos.AtLeastOnce)
     suspend fun unsubscribe(topic: String)
-
     suspend fun publish(message: MqttMessage)
 }

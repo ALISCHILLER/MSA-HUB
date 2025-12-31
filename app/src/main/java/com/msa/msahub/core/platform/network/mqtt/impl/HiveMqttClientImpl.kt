@@ -9,11 +9,17 @@ import com.msa.msahub.core.platform.network.mqtt.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * پیاده‌سازی صنعتی MqttClient با تمرکز بر پایداری ارتباط، مدیریت ریسک و عملکرد بالا.
+ */
 class HiveMqttClientImpl : MqttClient {
 
+    private val clientMutex = Mutex()
     private var client: Mqtt5AsyncClient? = null
 
     private val _connectionState = MutableStateFlow<MqttConnectionState>(MqttConnectionState.Disconnected)
@@ -21,37 +27,38 @@ class HiveMqttClientImpl : MqttClient {
 
     private val _incomingMessages = MutableSharedFlow<MqttMessage>(
         replay = 0,
-        extraBufferCapacity = 200,
+        extraBufferCapacity = 500, // افزایش ظرفیت برای سناریوهای صنعتی پر ترافیک
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     override val incomingMessages: Flow<MqttMessage> = _incomingMessages.asSharedFlow()
 
+    // نگهداری اشتراک‌ها برای بازیابی خودکار بعد از اتصال مجدد
     private val activeSubscriptions = ConcurrentHashMap<String, Qos>()
 
-    override suspend fun connect(config: MqttConfig) {
-        if (_connectionState.value == MqttConnectionState.Connected ||
-            _connectionState.value == MqttConnectionState.Connecting
-        ) return
-
+    override suspend fun connect(config: MqttConfig) = clientMutex.withLock {
+        if (_connectionState.value is MqttConnectionState.Connected) return@withLock
+        
         _connectionState.value = MqttConnectionState.Connecting
-
+        
         try {
             val builder = HiveMqtt.builder()
                 .useMqttVersion5()
                 .identifier(config.clientId)
                 .serverHost(config.host)
                 .serverPort(config.port)
+                // مدیریت خودکار Reconnect در سطح کتابخانه (لایه دفاعی دوم)
                 .automaticReconnectWithDefaultConfig()
 
+            // تنظیمات امنیتی TLS
             if (config.useTls) {
-                val ssl = config.sslContext
-                if (ssl != null) {
-                    builder.sslConfig().sslContext(ssl).applySslConfig()
+                if (config.sslContext != null) {
+                    builder.sslConfig().sslContext(config.sslContext).applySslConfig()
                 } else {
                     builder.sslWithDefaultConfig()
                 }
             }
 
+            // احراز هویت
             if (config.username != null) {
                 builder.simpleAuth()
                     .username(config.username)
@@ -62,7 +69,7 @@ class HiveMqttClientImpl : MqttClient {
             val asyncClient = builder.buildAsync()
             client = asyncClient
 
-            // استفاده از Global Publish Listener برای پایداری دریافت پیام
+            // شنود تمام پیام‌ها قبل از ارسال درخواست اتصال (جلوگیری از Race Condition)
             asyncClient.publishes(Mqtt5GlobalPublishFilter.ALL) { publish ->
                 handleIncomingPublish(publish)
             }
@@ -73,29 +80,43 @@ class HiveMqttClientImpl : MqttClient {
                 .send()
                 .await()
 
-            _connectionState.value = MqttConnectionState.Connected
-            Timber.i("MQTT Connected: ${connAck.reasonCode}")
+            if (connAck.reasonCode.isError) {
+                throw IllegalStateException("MQTT Connect Error: ${connAck.reasonCode}")
+            }
 
+            _connectionState.value = MqttConnectionState.Connected
+            Timber.i("MQTT Connected Successfully to ${config.host}")
+
+            // بازیابی خودکار اشتراک‌های قبلی
             reSubscribeAll()
+
         } catch (e: Exception) {
             Timber.e(e, "MQTT Connection Failed")
-            _connectionState.value = MqttConnectionState.Error("Connection failed: ${e.message}", e)
+            _connectionState.value = MqttConnectionState.Failed("Connection failed: ${e.message}", e)
+            client = null
+            throw e
         }
     }
 
-    override suspend fun disconnect() {
-        runCatching { client?.disconnect()?.await() }
-        client = null
-        _connectionState.value = MqttConnectionState.Disconnected
+    override suspend fun disconnect() = clientMutex.withLock {
+        try {
+            client?.disconnect()?.await()
+        } finally {
+            client = null
+            _connectionState.value = MqttConnectionState.Disconnected
+        }
     }
 
     override suspend fun subscribe(topic: String, qos: Qos) {
         activeSubscriptions[topic] = qos
-        client?.subscribeWith()
-            ?.topicFilter(topic)
-            ?.qos(mapQos(qos))
-            ?.send()
-            ?.await()
+        client?.let {
+            it.subscribeWith()
+                .topicFilter(topic)
+                .qos(mapQos(qos))
+                .send()
+                .await()
+            Timber.d("Subscribed to: $topic")
+        } ?: Timber.w("Subscribe failed: Client not connected")
     }
 
     override suspend fun unsubscribe(topic: String) {
@@ -107,16 +128,18 @@ class HiveMqttClientImpl : MqttClient {
     }
 
     override suspend fun publish(message: MqttMessage) {
-        client?.publishWith()
-            ?.topic(message.topic)
-            ?.payload(message.payload)
-            ?.qos(mapQos(message.qos))
-            ?.retain(message.retained)
-            ?.apply {
+        val currentClient = client ?: throw IllegalStateException("MQTT Client not connected")
+        
+        currentClient.publishWith()
+            .topic(message.topic)
+            .payload(message.payload)
+            .qos(mapQos(message.qos))
+            .retain(message.retained)
+            .apply {
                 message.correlationId?.let { correlationData(it.toByteArray()) }
             }
-            ?.send()
-            ?.await()
+            .send()
+            .await()
     }
 
     private fun handleIncomingPublish(publish: Mqtt5Publish) {
@@ -124,19 +147,25 @@ class HiveMqttClientImpl : MqttClient {
         val payload = publish.payloadAsBytes
         val correlationId = publish.correlationData.map { String(it.array()) }.orElse(null)
 
-        _incomingMessages.tryEmit(
-            MqttMessage(
-                topic = topic,
-                payload = payload,
-                qos = mapFromHiveQos(publish.qos),
-                retained = publish.isRetain,
-                correlationId = correlationId
-            )
+        val message = MqttMessage(
+            topic = topic,
+            payload = payload,
+            qos = mapFromHiveQos(publish.qos),
+            retained = publish.isRetain,
+            correlationId = correlationId
         )
+        
+        if (!_incomingMessages.tryEmit(message)) {
+            Timber.w("Incoming MQTT message dropped due to buffer overflow: $topic")
+        }
     }
 
     private suspend fun reSubscribeAll() {
-        activeSubscriptions.forEach { (topic, qos) -> subscribe(topic, qos) }
+        if (activeSubscriptions.isEmpty()) return
+        Timber.i("Restoring ${activeSubscriptions.size} subscriptions...")
+        activeSubscriptions.forEach { (topic, qos) ->
+            runCatching { subscribe(topic, qos) }
+        }
     }
 
     private fun mapQos(qos: Qos): com.hivemq.client.mqtt.datatypes.MqttQos = when (qos) {

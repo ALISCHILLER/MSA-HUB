@@ -3,6 +3,7 @@ package com.msa.msahub.core.di
 import androidx.room.Room
 import com.msa.msahub.core.platform.database.AppDatabase
 import com.msa.msahub.core.platform.database.DatabaseInitializer
+import com.msa.msahub.features.devices.data.local.migrations.MIGRATION_3_4
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -15,7 +16,8 @@ object DatabaseModule {
                 klass = AppDatabase::class.java,
                 name = "msa_hub.db"
             )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_3_4) // اضافه کردن میگریشن برای پشتیبانی از Outbox جدید
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
         }
 

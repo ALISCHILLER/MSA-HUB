@@ -8,7 +8,9 @@ import androidx.room.PrimaryKey
     tableName = "offline_commands",
     indices = [
         Index(value = ["deviceId"]),
-        Index(value = ["createdAtMillis"])
+        Index(value = ["createdAtMillis"]),
+        Index(value = ["status"]),
+        Index(value = ["attempts"])
     ]
 )
 data class OfflineCommandEntity(
@@ -18,7 +20,12 @@ data class OfflineCommandEntity(
     val payloadBase64: String,
     val qos: Int,
     val retained: Boolean,
+    val status: OfflineCommandStatus = OfflineCommandStatus.PENDING,
+    val correlationId: String? = null,
     val attempts: Int = 0,
+    val maxAttempts: Int = 5,
     val lastError: String? = null,
-    val createdAtMillis: Long
+    val lastAttemptAtMillis: Long? = null,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long = createdAtMillis
 )
