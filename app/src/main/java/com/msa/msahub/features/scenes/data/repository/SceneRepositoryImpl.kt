@@ -74,7 +74,7 @@ class SceneRepositoryImpl(
                 if (isConnected) {
                     mqtt.publish(MqttMessage(topic = topic, payload = payloadBytes))
                 } else {
-                    offlineDao.upsert(
+                    offlineDao.insert(
                         OfflineCommandEntity(
                             id = ids.uuid(),
                             deviceId = action.deviceId,

@@ -57,8 +57,9 @@ class DeviceDetailViewModel(
             when (val result = getDetail(id, forceRefresh)) {
                 is Result.Success -> _state.value = _state.value.copy(isLoading = false, device = result.data)
                 is Result.Failure -> {
-                    _state.value = _state.value.copy(isLoading = false, errorMessage = result.error.message)
-                    _effects.tryEmit(DeviceDetailUiEffect.ShowError(result.error.message))
+                    val msg = result.error.message ?: "Unknown Error"
+                    _state.value = _state.value.copy(isLoading = false, errorMessage = msg)
+                    _effects.tryEmit(DeviceDetailUiEffect.ShowError(msg))
                 }
             }
         }
@@ -86,7 +87,10 @@ class DeviceDetailViewModel(
 
             when (val result = sendCommand(cmd)) {
                 is Result.Success -> _effects.tryEmit(DeviceDetailUiEffect.CommandResult(result.data))
-                is Result.Failure -> _effects.tryEmit(DeviceDetailUiEffect.ShowError(result.error.message))
+                is Result.Failure -> {
+                    val msg = result.error.message ?: "Unknown Error"
+                    _effects.tryEmit(DeviceDetailUiEffect.ShowError(msg))
+                }
             }
         }
     }

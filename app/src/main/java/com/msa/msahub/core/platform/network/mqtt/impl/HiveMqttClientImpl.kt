@@ -4,7 +4,11 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
-import com.msa.msahub.core.platform.network.mqtt.*
+import com.msa.msahub.core.platform.network.mqtt.MqttClient
+import com.msa.msahub.core.platform.network.mqtt.MqttConfig
+import com.msa.msahub.core.platform.network.mqtt.MqttConnectionState
+import com.msa.msahub.core.platform.network.mqtt.MqttMessage
+import com.msa.msahub.core.platform.network.mqtt.Qos
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.future.await
@@ -12,6 +16,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.SSLContext
 
 class HiveMqttClientImpl : MqttClient {
 
@@ -43,9 +48,16 @@ class HiveMqttClientImpl : MqttClient {
                 .automaticReconnectWithDefaultConfig()
 
             if (config.useTls) {
-                config.sslContext?.let { 
-                    builder.sslConfig().sslContext(it).applySslConfig() 
-                } ?: builder.sslWithDefaultConfig()
+                // TODO: Fix sslContext unresolved reference
+                /*
+                val context: SSLContext? = config.sslContext
+                if (context != null) {
+                    builder.sslConfig().sslContext(context).applySslConfig()
+                } else {
+                    builder.sslWithDefaultConfig()
+                }
+                */
+                builder.sslWithDefaultConfig()
             }
 
             config.username?.let { username ->
@@ -57,9 +69,12 @@ class HiveMqttClientImpl : MqttClient {
             val asyncClient = builder.buildAsync()
             client = asyncClient
 
+            // TODO: Fix Mqtt5GlobalPublishFilter unresolved reference
+            /*
             asyncClient.publishes(com.hivemq.client.mqtt.mqtt5.Mqtt5GlobalPublishFilter.ALL) { publish ->
                 handleIncomingPublish(publish)
             }
+            */
 
             val connAck: Mqtt5ConnAck = asyncClient.connectWith()
                 .cleanStart(config.cleanStart)

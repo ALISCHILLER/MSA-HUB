@@ -1,6 +1,7 @@
 package com.msa.msahub.features.devices.data.mapper
 
 import com.msa.msahub.features.devices.data.local.entity.DeviceEntity
+import com.msa.msahub.features.devices.data.remote.model.DeviceRemoteModel
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceStatusEvent
 import com.msa.msahub.features.devices.domain.model.Device
 import com.msa.msahub.features.devices.domain.model.DeviceCapability
@@ -47,6 +48,22 @@ class DeviceMapper {
             isFavorite = false,
             roomName = null,
             lastSeenMillis = event.timestamp
+        )
+    }
+
+    fun fromRemote(model: DeviceRemoteModel): Device {
+        val caps = model.capabilities
+            .mapNotNull { runCatching { DeviceCapability.valueOf(it) }.getOrNull() }
+            .toSet()
+
+        return Device(
+            id = model.id,
+            name = model.name,
+            type = runCatching { DeviceType.valueOf(model.type) }.getOrDefault(DeviceType.UNKNOWN),
+            capabilities = caps,
+            isFavorite = false, // اطلاعات Favorite معمولا لوکال است
+            roomName = model.room,
+            lastSeenMillis = model.lastSeen
         )
     }
 }

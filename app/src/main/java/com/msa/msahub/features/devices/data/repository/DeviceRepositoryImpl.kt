@@ -22,7 +22,7 @@ class DeviceRepositoryImpl(
     private val deviceHistoryDao: DeviceHistoryDao,
     private val api: DeviceApiService,
     private val mqttHandler: DeviceMqttHandler,
-    private val outbox: OfflineCommandOutbox, // تزریق Outbox واحد
+    private val outbox: OfflineCommandOutbox,
     private val deviceMapper: DeviceMapper,
     private val deviceStateMapper: DeviceStateMapper,
     private val commandMapper: DeviceCommandMapper
@@ -42,10 +42,35 @@ class DeviceRepositoryImpl(
             list.map { DeviceHistoryItem(it.id, it.deviceId, it.recordedAtMillis) }
         }
 
-    override suspend fun getDevices(forceRefresh: Boolean): Result<List<Device>> = try {
+    override suspend fun syncDevices(): Result<Unit> = try {
         val remote = api.fetchDevices()
         deviceDao.upsertAll(remote.map(deviceMapper::toEntity))
-        Result.Success(remote)
+        Result.Success(Unit)
+    } catch (t: Throwable) {
+        Result.Failure(AppError.Network("Sync failed: ${t.message}"))
+    }
+
+    override suspend fun updateDeviceFavorite(deviceId: String, isFavorite: Boolean): Result<Unit> = try {
+        deviceDao.updateFavorite(deviceId, isFavorite)
+        Result.Success(Unit)
+    } catch (t: Throwable) {
+        Result.Failure(AppError.Database("Update favorite failed", t))
+    }
+
+    override suspend fun getDevices(forceRefresh: Boolean): Result<List<Device>> = try {
+        if (forceRefresh) {
+            val remote = api.fetchDevices()
+            deviceDao.upsertAll(remote.map(deviceMapper::toEntity))
+            Result.Success(remote)
+        } else {
+            val cached = deviceDao.getAll().map(deviceMapper::fromEntity)
+            if (cached.isNotEmpty()) Result.Success(cached)
+            else {
+                val remote = api.fetchDevices()
+                deviceDao.upsertAll(remote.map(deviceMapper::toEntity))
+                Result.Success(remote)
+            }
+        }
     } catch (t: Throwable) {
         val cached = deviceDao.getAll().map(deviceMapper::fromEntity)
         if (cached.isNotEmpty()) Result.Success(cached)
@@ -53,11 +78,23 @@ class DeviceRepositoryImpl(
     }
 
     override suspend fun getDeviceDetail(deviceId: String, forceRefresh: Boolean): Result<Device> = try {
-        val remote = api.fetchDeviceDetail(deviceId)
-        if (remote != null) {
-            deviceDao.upsert(deviceMapper.toEntity(remote))
-            Result.Success(remote)
-        } else Result.Failure(AppError.Unknown("Device not found"))
+        if (forceRefresh) {
+             val remote = api.fetchDeviceDetail(deviceId)
+            if (remote != null) {
+                deviceDao.upsert(deviceMapper.toEntity(remote))
+                Result.Success(remote)
+            } else Result.Failure(AppError.Unknown("Device not found"))
+        } else {
+             val cached = deviceDao.getById(deviceId)?.let(deviceMapper::fromEntity)
+             if (cached != null) Result.Success(cached)
+             else {
+                 val remote = api.fetchDeviceDetail(deviceId)
+                 if (remote != null) {
+                    deviceDao.upsert(deviceMapper.toEntity(remote))
+                    Result.Success(remote)
+                 } else Result.Failure(AppError.Unknown("Device not found"))
+             }
+        }
     } catch (t: Throwable) {
         val cached = deviceDao.getById(deviceId)?.let(deviceMapper::fromEntity)
         cached?.let { Result.Success(it) } ?: Result.Failure(AppError.Unknown("Load failed", t))
@@ -79,7 +116,7 @@ class DeviceRepositoryImpl(
 
         if (publishOk) Result.Success(CommandAck.Success)
         else {
-            offlineCommandDao.upsert(
+            offlineCommandDao.insert(
                 commandMapper.toOfflineEntity(
                     UUID.randomUUID().toString(),
                     command.deviceId,
@@ -96,10 +133,6 @@ class DeviceRepositoryImpl(
         Result.Failure(AppError.Mqtt("Send failed", t))
     }
 
-    /**
-     * P1: Unify Outbox flush (Point 3). 
-     * Delegating to the industrial OfflineCommandOutbox.
-     */
     override suspend fun flushOutbox(max: Int): Result<Int> {
         return outbox.flush(max)
     }

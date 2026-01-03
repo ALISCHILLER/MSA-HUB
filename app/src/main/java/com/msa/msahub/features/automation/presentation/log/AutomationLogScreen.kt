@@ -6,8 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +36,7 @@ fun AutomationLogScreen(
                 title = { Text("تاریخچه اتوماسیون") },
                 actions = {
                     IconButton(onClick = { viewModel.onEvent(AutomationLogEvent.ClearLogs) }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "پاکسازی")
+                        Icon(Icons.Default.Delete, contentDescription = "پاکسازی")
                     }
                 }
             )
@@ -107,7 +107,7 @@ fun EmptyLogs(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         Text("تاریخچه‌ای وجود ندارد", color = MaterialTheme.colorScheme.outline)
     }
 }

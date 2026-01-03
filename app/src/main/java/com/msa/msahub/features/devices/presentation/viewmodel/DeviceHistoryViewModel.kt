@@ -42,8 +42,9 @@ class DeviceHistoryViewModel(
             when (val result = getHistory(id, limit = 50)) {
                 is Result.Success -> _state.value = _state.value.copy(isLoading = false, items = result.data)
                 is Result.Failure -> {
-                    _state.value = _state.value.copy(isLoading = false, errorMessage = result.error.message)
-                    _effects.tryEmit(DeviceHistoryUiEffect.ShowError(result.error.message))
+                    val msg = result.error.message ?: "Unknown Error"
+                    _state.value = _state.value.copy(isLoading = false, errorMessage = msg)
+                    _effects.tryEmit(DeviceHistoryUiEffect.ShowError(msg))
                 }
             }
         }

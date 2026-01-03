@@ -38,7 +38,7 @@ object AutomationModule {
                 notificationHelper = get(),
                 ids = get(),
                 logger = get(),
-                scope = get<kotlinx.coroutines.CoroutineScope>(named(AppScopeModule.APP_SCOPE))
+                scope = get<kotlinx.coroutines.CoroutineScope>(AppScopeModule.APP_SCOPE) // Fixed named() issue
             )
         }
 

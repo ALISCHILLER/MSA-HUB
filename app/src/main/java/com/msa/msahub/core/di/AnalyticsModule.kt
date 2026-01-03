@@ -1,7 +1,11 @@
 package com.msa.msahub.core.di
 
+import com.msa.msahub.core.observability.EventLogger
+import com.msa.msahub.core.observability.TimberEventLogger
 import org.koin.dsl.module
 
-val analyticsModule = module {
-    // Analytics and logging uploader
+object AnalyticsModule {
+    val module = module {
+        single<EventLogger> { TimberEventLogger() }
+    }
 }

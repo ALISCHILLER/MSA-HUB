@@ -13,6 +13,7 @@ import com.msa.msahub.features.devices.data.remote.api.DeviceApiService
 import com.msa.msahub.features.devices.data.remote.api.DeviceApiServiceImpl
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
 import com.msa.msahub.features.devices.data.repository.DeviceRepositoryImpl
+import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
 import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import com.msa.msahub.features.devices.domain.usecase.GetDeviceDetailUseCase
 import com.msa.msahub.features.devices.domain.usecase.GetDeviceHistoryUseCase
@@ -51,6 +52,9 @@ object DevicesModule {
         }
         single { DeviceMqttHandler(mqttClient = get<MqttClient>()) }
 
+        // --- Outbox ---
+        single { OfflineCommandOutbox(dao = get(), mqttHandler = get()) }
+
         // --- Repository ---
         single<DeviceRepository> {
             DeviceRepositoryImpl(
@@ -60,6 +64,7 @@ object DevicesModule {
                 deviceHistoryDao = get(),
                 api = get(),
                 mqttHandler = get(),
+                outbox = get(),
                 deviceMapper = get(),
                 deviceStateMapper = get(),
                 commandMapper = get()

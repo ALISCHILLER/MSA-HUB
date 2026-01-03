@@ -1,5 +1,6 @@
 package com.msa.msahub.core.di
 
+import com.msa.msahub.features.automation.di.AutomationModule
 import com.msa.msahub.features.devices.di.DevicesModule
 import com.msa.msahub.features.home.di.HomeModule
 import com.msa.msahub.features.scenes.di.ScenesModule
@@ -14,10 +15,12 @@ object ModuleRegistry {
         DatabaseModule.module,
         AppScopeModule.module,
         BackgroundModule.module,
-        SecurityModule.module, // اضافه شد
+        SecurityModule.module,
+        AnalyticsModule.module, // Added
         HomeModule.module,
         DevicesModule.module,
         ScenesModule.module,
-        SettingsModule.module // اضافه شد
+        SettingsModule.module,
+        AutomationModule.module // Added
     )
 }

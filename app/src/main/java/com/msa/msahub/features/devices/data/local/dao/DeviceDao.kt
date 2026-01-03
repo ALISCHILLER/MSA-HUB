@@ -33,4 +33,7 @@ interface DeviceDao {
 
     @Query("DELETE FROM devices")
     suspend fun clear()
+
+    @Query("UPDATE devices SET isFavorite = :isFavorite WHERE id = :deviceId")
+    suspend fun updateFavorite(deviceId: String, isFavorite: Boolean)
 }

@@ -39,8 +39,9 @@ class DeviceListViewModel(
             when (val result = getDevices(forceRefresh)) {
                 is Result.Success -> _state.value = DeviceListUiState(isLoading = false, items = result.data)
                 is Result.Failure -> {
-                    _state.value = _state.value.copy(isLoading = false, errorMessage = result.error.message)
-                    _effects.tryEmit(DeviceListUiEffect.ShowError(result.error.message))
+                    val msg = result.error.message ?: "Unknown Error"
+                    _state.value = _state.value.copy(isLoading = false, errorMessage = msg)
+                    _effects.tryEmit(DeviceListUiEffect.ShowError(msg))
                 }
             }
         }

@@ -46,6 +46,7 @@ class DeviceRealtimeBridge(
                     DeviceHistoryEntity(
                         id = UUID.randomUUID().toString(),
                         deviceId = parsed.deviceId,
+                        stateId = stateId,
                         recordedAtMillis = parsed.timestamp
                     )
                 )
