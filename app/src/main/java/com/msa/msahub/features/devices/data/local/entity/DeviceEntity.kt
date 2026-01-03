@@ -11,5 +11,6 @@ data class DeviceEntity(
     val capabilitiesCsv: String,
     val isFavorite: Boolean,
     val roomName: String?,
-    val lastSeenMillis: Long
+    val lastSeenMillis: Long,
+    val updatedAtMillis: Long = System.currentTimeMillis()
 )

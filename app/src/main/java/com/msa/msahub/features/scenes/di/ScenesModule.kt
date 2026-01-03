@@ -12,8 +12,7 @@ import org.koin.dsl.module
 
 object ScenesModule {
     val module = module {
-        single { get<AppDatabase>().sceneDao() }
-        single { get<AppDatabase>().offlineCommandDao() }
+        // DAO definitions REMOVED (Provided by DatabaseModule)
 
         single { SceneMapper() }
 

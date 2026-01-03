@@ -36,4 +36,7 @@ interface DeviceDao {
 
     @Query("UPDATE devices SET isFavorite = :isFavorite WHERE id = :deviceId")
     suspend fun updateFavorite(deviceId: String, isFavorite: Boolean)
+
+    @Query("UPDATE devices SET name = :name, updatedAtMillis = :now WHERE id = :id")
+    suspend fun updateName(id: String, name: String, now: Long = System.currentTimeMillis())
 }

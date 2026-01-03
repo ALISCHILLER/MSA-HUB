@@ -1,11 +1,6 @@
 package com.msa.msahub.features.devices.di
 
-import com.msa.msahub.core.platform.database.AppDatabase
 import com.msa.msahub.core.platform.network.mqtt.MqttClient
-import com.msa.msahub.features.devices.data.local.dao.DeviceDao
-import com.msa.msahub.features.devices.data.local.dao.DeviceHistoryDao
-import com.msa.msahub.features.devices.data.local.dao.DeviceStateDao
-import com.msa.msahub.features.devices.data.local.dao.OfflineCommandDao
 import com.msa.msahub.features.devices.data.mapper.DeviceCommandMapper
 import com.msa.msahub.features.devices.data.mapper.DeviceMapper
 import com.msa.msahub.features.devices.data.mapper.DeviceStateMapper
@@ -15,6 +10,7 @@ import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
 import com.msa.msahub.features.devices.data.repository.DeviceRepositoryImpl
 import com.msa.msahub.features.devices.data.sync.OfflineCommandOutbox
 import com.msa.msahub.features.devices.domain.repository.DeviceRepository
+import com.msa.msahub.features.devices.domain.usecase.FlushOfflineCommandsUseCase
 import com.msa.msahub.features.devices.domain.usecase.GetDeviceDetailUseCase
 import com.msa.msahub.features.devices.domain.usecase.GetDeviceHistoryUseCase
 import com.msa.msahub.features.devices.domain.usecase.GetDevicesUseCase
@@ -30,19 +26,12 @@ import org.koin.dsl.module
 object DevicesModule {
     val module = module {
 
-        // --- DAO bindings (from AppDatabase) ---
-        single<DeviceDao> { get<AppDatabase>().deviceDao() }
-        single<DeviceStateDao> { get<AppDatabase>().deviceStateDao() }
-        single<OfflineCommandDao> { get<AppDatabase>().offlineCommandDao() }
-        single<DeviceHistoryDao> { get<AppDatabase>().deviceHistoryDao() }
-
         // --- Mappers ---
         single { DeviceMapper() }
         single { DeviceStateMapper() }
         single { DeviceCommandMapper() }
 
         // --- Remote ---
-        // برای استفاده واقعی از API:
         single<DeviceApiService> { 
             DeviceApiServiceImpl(
                 httpClient = get(),
@@ -72,6 +61,7 @@ object DevicesModule {
         }
 
         // --- UseCases ---
+        factory { FlushOfflineCommandsUseCase(get()) }
         factory { GetDevicesUseCase(get()) }
         factory { GetDeviceDetailUseCase(get()) }
         factory { ObserveDeviceStateUseCase(get()) }
@@ -82,6 +72,6 @@ object DevicesModule {
         viewModel { DeviceListViewModel(get()) }
         viewModel { DeviceDetailViewModel(get(), get(), get()) }
         viewModel { DeviceHistoryViewModel(get()) }
-        viewModel { DeviceSettingsViewModel() }
+        viewModel { DeviceSettingsViewModel(deviceDao = get()) }
     }
 }

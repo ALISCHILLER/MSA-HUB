@@ -4,7 +4,6 @@ import com.msa.msahub.features.devices.data.local.dao.DeviceHistoryDao
 import com.msa.msahub.features.devices.data.local.dao.DeviceStateDao
 import com.msa.msahub.features.devices.data.local.entity.DeviceHistoryEntity
 import com.msa.msahub.features.devices.data.local.entity.DeviceStateEntity
-import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttEvent
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttHandler
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttStateParser
 import com.msa.msahub.features.devices.data.remote.mqtt.DeviceStatusEvent
@@ -23,22 +22,25 @@ class DeviceRealtimeBridge(
 
         mqttHandler.observeState(deviceId).collectLatest { event ->
             if (event is DeviceStatusEvent) {
-                // Here we might need the actual payload if DeviceStatusEvent doesn't have it parsed
-                // but the observer in Handler already maps to DeviceStatusEvent.
-                // If it needs raw parsing:
-                val parsed = event // Already parsed in handler's observeState mapping
-                
+                val parsed = event
+                val state = parser.parseFromStateMap(
+                    deviceId = parsed.deviceId,
+                    online = parsed.online,
+                    state = parsed.state,
+                    timestamp = parsed.timestamp
+                )
+
                 val stateId = UUID.randomUUID().toString()
                 val entity = DeviceStateEntity(
                     id = stateId,
-                    deviceId = parsed.deviceId,
-                    isOnline = parsed.online,
-                    isOn = true, // Default or parse from map
-                    brightness = null,
-                    temperatureC = null,
-                    humidityPercent = null,
-                    batteryPercent = null,
-                    updatedAtMillis = parsed.timestamp
+                    deviceId = state.deviceId,
+                    isOnline = state.isOnline,
+                    isOn = state.isOn,
+                    brightness = state.brightness,
+                    temperatureC = state.temperatureC,
+                    humidityPercent = state.humidityPercent,
+                    batteryPercent = state.batteryPercent,
+                    updatedAtMillis = state.updatedAtMillis
                 )
                 deviceStateDao.upsert(entity)
 

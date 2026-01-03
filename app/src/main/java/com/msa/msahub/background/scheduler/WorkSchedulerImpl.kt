@@ -90,7 +90,7 @@ class WorkSchedulerImpl(
             .setRequiredNetworkType(NetworkType.UNMETERED)
             .build()
 
-        val req = PeriodicWorkRequestBuilder<DataCleanupWorker>(24, TimeUnit.HOURS) // جایگزین با AnalyticsWorker در آینده
+        val req = PeriodicWorkRequestBuilder<AnalyticsUploadWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
             .build()
 

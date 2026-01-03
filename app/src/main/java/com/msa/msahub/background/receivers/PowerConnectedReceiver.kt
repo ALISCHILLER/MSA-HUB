@@ -4,16 +4,18 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.msa.msahub.background.scheduler.WorkScheduler
-import org.koin.core.context.GlobalContext
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class PowerConnectedReceiver : BroadcastReceiver() {
+class PowerConnectedReceiver : BroadcastReceiver(), KoinComponent {
+
+    private val scheduler: WorkScheduler by inject()
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_POWER_CONNECTED) {
             return
         }
 
-        // اصلاح نحوه فراخوانی Koin برای سازگاری با نسخه جدید
-        val scheduler = GlobalContext.get().get<WorkScheduler>()
         scheduler.scheduleDataCleanup()
         scheduler.scheduleAnalyticsUpload()
     }

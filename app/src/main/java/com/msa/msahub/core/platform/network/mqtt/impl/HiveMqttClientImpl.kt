@@ -1,5 +1,6 @@
 package com.msa.msahub.core.platform.network.mqtt.impl
 
+import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck
@@ -48,16 +49,12 @@ class HiveMqttClientImpl : MqttClient {
                 .automaticReconnectWithDefaultConfig()
 
             if (config.useTls) {
-                // TODO: Fix sslContext unresolved reference
-                /*
-                val context: SSLContext? = config.sslContext
+                val context = config.sslContext
                 if (context != null) {
                     builder.sslConfig().sslContext(context).applySslConfig()
                 } else {
                     builder.sslWithDefaultConfig()
                 }
-                */
-                builder.sslWithDefaultConfig()
             }
 
             config.username?.let { username ->
@@ -69,12 +66,10 @@ class HiveMqttClientImpl : MqttClient {
             val asyncClient = builder.buildAsync()
             client = asyncClient
 
-            // TODO: Fix Mqtt5GlobalPublishFilter unresolved reference
-            /*
-            asyncClient.publishes(com.hivemq.client.mqtt.mqtt5.Mqtt5GlobalPublishFilter.ALL) { publish ->
+            // ✅ Enable global inbound publish listener (so incomingMessages will emit)
+            asyncClient.publishes(MqttGlobalPublishFilter.ALL) { publish ->
                 handleIncomingPublish(publish)
             }
-            */
 
             val connAck: Mqtt5ConnAck = asyncClient.connectWith()
                 .cleanStart(config.cleanStart)

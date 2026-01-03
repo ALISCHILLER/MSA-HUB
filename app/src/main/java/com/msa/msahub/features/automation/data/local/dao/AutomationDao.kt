@@ -18,6 +18,9 @@ interface AutomationDao {
     @Delete
     suspend fun delete(automation: AutomationEntity)
 
+    @Query("DELETE FROM automations WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("UPDATE automations SET isEnabled = :enabled WHERE id = :id")
     suspend fun setEnabled(id: String, enabled: Boolean)
 }

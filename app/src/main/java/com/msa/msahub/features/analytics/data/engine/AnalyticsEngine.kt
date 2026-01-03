@@ -3,29 +3,69 @@ package com.msa.msahub.features.analytics.data.engine
 import com.msa.msahub.core.common.Logger
 import com.msa.msahub.features.analytics.data.local.dao.AnalyticsDao
 import com.msa.msahub.features.analytics.data.local.entity.SensorAnalyticsEntity
+import com.msa.msahub.features.devices.data.local.dao.DeviceDao
 import com.msa.msahub.features.devices.data.local.dao.DeviceStateDao
-import java.util.*
 
-/**
- * موتور تحلیل داده: تبدیل رکوردهای خام به بینش‌های آماری
- */
 class AnalyticsEngine(
+    private val deviceDao: DeviceDao,
     private val stateDao: DeviceStateDao,
     private val analyticsDao: AnalyticsDao,
     private val logger: Logger
 ) {
     suspend fun runDailyAnalysis() {
         logger.i("Running daily sensor analysis...")
-        
-        // این متد می‌تواند توسط یک WorkManager در ساعت ۲ بامداد اجرا شود.
-        // ۱. دریافت داده‌های ۲۴ ساعت گذشته
-        // ۲. گروه‌بندی بر اساس نوع سنسور
-        // ۳. محاسبه میانگین، مینیمم و ماکزیمم
-        // ۴. ذخیره در جدول sensor_analytics
-        
-        // پیاده‌سازی نمونه برای سنسور دما:
-        // val yesterdayData = stateDao.getRecent(...)
-        // val avg = yesterdayData.mapNotNull { it.temperatureC }.average()
-        // analyticsDao.upsert(SensorAnalyticsEntity(..., avgValue = avg))
+
+        val now = System.currentTimeMillis()
+        val cutoff24h = now - 24L * 60L * 60L * 1000L
+
+        val devices = deviceDao.getAll()
+        logger.i("Analytics: devices=${devices.size}")
+
+        for (d in devices) {
+            // تعداد نمونه‌ها را کنترل می‌کنیم تا فشار DB زیاد نشود
+            val recent = stateDao.getRecent(d.id, limit = 500)
+                .filter { it.updatedAtMillis >= cutoff24h }
+
+            if (recent.isEmpty()) continue
+
+            fun upsertMetric(metricType: String, values: List<Double>) {
+                if (values.isEmpty()) return
+                val avg = values.average()
+                val max = values.maxOrNull() ?: return
+                val min = values.minOrNull() ?: return
+
+                analyticsDao.upsert(
+                    SensorAnalyticsEntity(
+                        deviceId = d.id,
+                        dateMillis = now, // برای نسخه‌ی اولیه: timestamp فعلی
+                        metricType = metricType,
+                        avgValue = avg,
+                        maxValue = max,
+                        minValue = min
+                    )
+                )
+            }
+
+            upsertMetric(
+                metricType = "TEMPERATURE",
+                values = recent.mapNotNull { it.temperatureC }
+            )
+
+            upsertMetric(
+                metricType = "HUMIDITY",
+                values = recent.mapNotNull { it.humidityPercent }
+            )
+
+            upsertMetric(
+                metricType = "BATTERY",
+                values = recent.mapNotNull { it.batteryPercent?.toDouble() }
+            )
+        }
+
+        // پاکسازی 90 روز قبل
+        val cutoff90d = now - 90L * 24L * 60L * 60L * 1000L
+        analyticsDao.deleteOldAnalytics(cutoff90d)
+
+        logger.i("Analytics: daily analysis done.")
     }
 }

@@ -1,7 +1,10 @@
 package com.msa.msahub.core.platform.connectivity
 
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface NetworkMonitor {
-    val networkState: Flow<NetworkState>
+    val state: StateFlow<NetworkState>
+
+    fun start()
+    fun stop()
 }

@@ -124,7 +124,8 @@ class DeviceRepositoryImpl(
                     payload,
                     Qos.AtLeastOnce,
                     false,
-                    command.createdAtMillis
+                    command.createdAtMillis,
+                    correlationId = command.commandId
                 )
             )
             Result.Success(CommandAck.QueuedOffline)

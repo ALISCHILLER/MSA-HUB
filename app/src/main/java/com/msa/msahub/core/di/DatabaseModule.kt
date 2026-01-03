@@ -2,8 +2,6 @@ package com.msa.msahub.core.di
 
 import androidx.room.Room
 import com.msa.msahub.core.platform.database.AppDatabase
-import com.msa.msahub.core.platform.database.DatabaseInitializer
-import com.msa.msahub.features.devices.data.local.migrations.MIGRATION_3_4
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -16,26 +14,11 @@ object DatabaseModule {
                 klass = AppDatabase::class.java,
                 name = "msa_hub.db"
             )
-                .addMigrations(MIGRATION_3_4) // اضافه کردن میگریشن برای پشتیبانی از Outbox جدید
-                .fallbackToDestructiveMigrationOnDowngrade()
+                .fallbackToDestructiveMigration()
                 .build()
         }
 
-        // DAOs
+        // Only provide the single DAO from our minimal database
         single { get<AppDatabase>().deviceDao() }
-        single { get<AppDatabase>().deviceStateDao() }
-        single { get<AppDatabase>().deviceHistoryDao() }
-        single { get<AppDatabase>().offlineCommandDao() }
-        single { get<AppDatabase>().sceneDao() }
-
-        // DB seeder
-        single { 
-            DatabaseInitializer(
-                deviceDao = get(),
-                deviceStateDao = get(),
-                logger = get(),
-                scope = get(AppScopeModule.APP_SCOPE)
-            )
-        }
     }
 }
