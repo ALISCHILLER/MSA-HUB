@@ -5,6 +5,7 @@ import com.msa.msahub.core.platform.config.AppConfigStore
 import com.msa.msahub.core.platform.network.ConnectivityObserver
 import com.msa.msahub.core.platform.network.NetworkConnectivityObserver
 import com.msa.msahub.core.platform.network.http.KtorClientFactory
+import com.msa.msahub.core.platform.network.http.NetworkConfig
 import com.msa.msahub.core.platform.network.mqtt.*
 import com.msa.msahub.core.platform.network.mqtt.impl.HiveMqttClientImpl
 import com.msa.msahub.features.devices.data.remote.mqtt.MqttIngestor
@@ -20,12 +21,21 @@ object NetworkModule {
         
         single { AppConfigStore(androidContext()) }
         single { JsonProvider.json }
+
+        // Added NetworkConfig definition to fix NoDefinitionFoundException
+        single {
+            NetworkConfig(
+                baseUrl = "https://api.msa-hub.com/v1/",
+                connectTimeout = 30_000,
+                requestTimeout = 30_000
+            )
+        }
         
         single { 
             KtorClientFactory(
                 json = get(),
                 authTokenStore = get(),
-                baseUrlProvider = { "https://api.msa-hub.com/v1/" }
+                baseUrlProvider = { get<NetworkConfig>().baseUrl }
             ) 
         }
         
