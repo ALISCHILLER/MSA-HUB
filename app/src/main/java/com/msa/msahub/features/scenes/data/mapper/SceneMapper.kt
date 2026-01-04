@@ -2,12 +2,14 @@ package com.msa.msahub.features.scenes.data.mapper
 
 import com.msa.msahub.features.scenes.data.local.entity.SceneEntity
 import com.msa.msahub.features.scenes.domain.model.Scene
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
-class SceneMapper {
+class SceneMapper(private val json: Json) {
     fun toDomain(entity: SceneEntity): Scene = Scene(
         id = entity.id,
         name = entity.name,
-        actions = entity.actions,
+        actions = try { json.decodeFromString(entity.actions) } catch (e: Exception) { emptyList() },
         enabled = entity.enabled
     )
 
@@ -15,7 +17,7 @@ class SceneMapper {
         id = scene.id,
         name = scene.name,
         enabled = scene.enabled,
-        actions = scene.actions,
+        actions = json.encodeToString(scene.actions),
         updatedAt = now
     )
 }

@@ -25,7 +25,8 @@ class DeviceCommandMapper {
         payload: ByteArray,
         qos: Qos,
         retained: Boolean,
-        createdAtMillis: Long
+        createdAtMillis: Long,
+        correlationId: String? = null
     ): OfflineCommandEntity {
         return OfflineCommandEntity(
             id = id,
@@ -35,6 +36,7 @@ class DeviceCommandMapper {
             qos = qosToInt(qos),
             retained = retained,
             createdAtMillis = createdAtMillis,
+            correlationId = correlationId,
             attempts = 0,
             lastError = null
         )

@@ -4,7 +4,9 @@ import com.msa.msahub.core.common.JsonProvider
 import com.msa.msahub.core.platform.config.AppConfigStore
 import com.msa.msahub.core.platform.network.ConnectivityObserver
 import com.msa.msahub.core.platform.network.NetworkConnectivityObserver
+import com.msa.msahub.core.platform.network.http.DataStoreNetworkConfigProvider
 import com.msa.msahub.core.platform.network.http.KtorClientFactory
+import com.msa.msahub.core.platform.network.http.NetworkConfig
 import com.msa.msahub.core.platform.network.http.NetworkConfigProvider
 import com.msa.msahub.core.platform.network.mqtt.*
 import com.msa.msahub.core.platform.network.mqtt.impl.HiveMqttClientImpl
@@ -45,7 +47,10 @@ object NetworkModule {
             )
         }
 
-        single<HttpClient> { get<KtorClientFactory>().create(get<NetworkConfigProvider>().current()) }
+        single<HttpClient> { 
+            val cfg = get<NetworkConfigProvider>().current()
+            get<KtorClientFactory>().create(NetworkConfig(cfg.baseUrl, cfg.connectTimeoutMs, cfg.requestTimeoutMs)) 
+        }
 
         single<ConnectivityObserver> { NetworkConnectivityObserver(androidContext()) }
 

@@ -1,6 +1,5 @@
 package com.msa.msahub.features.scenes.di
 
-import com.msa.msahub.core.platform.database.AppDatabase
 import com.msa.msahub.features.scenes.data.mapper.SceneMapper
 import com.msa.msahub.features.scenes.data.repository.SceneRepositoryImpl
 import com.msa.msahub.features.scenes.domain.repository.SceneRepository
@@ -12,9 +11,7 @@ import org.koin.dsl.module
 
 object ScenesModule {
     val module = module {
-        // DAO definitions REMOVED (Provided by DatabaseModule)
-
-        single { SceneMapper() }
+        single { SceneMapper(get()) }
 
         single<SceneRepository> {
             SceneRepositoryImpl(

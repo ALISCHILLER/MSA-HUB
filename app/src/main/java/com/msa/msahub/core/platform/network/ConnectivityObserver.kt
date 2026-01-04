@@ -19,6 +19,9 @@ interface ConnectivityObserver {
     }
 }
 
+val ConnectivityObserver.Status.isConnected: Boolean
+    get() = this == ConnectivityObserver.Status.Available
+
 class NetworkConnectivityObserver(context: Context) : ConnectivityObserver {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

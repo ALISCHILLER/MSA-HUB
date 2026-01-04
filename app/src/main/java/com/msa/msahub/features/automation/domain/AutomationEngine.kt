@@ -14,14 +14,12 @@ import com.msa.msahub.core.observability.NotificationHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.decodeFromString
 
 class AutomationEngine(
     private val mqttClient: MqttClient,
     private val automationDao: AutomationDao,
     private val logDao: AutomationLogDao,
     private val deviceRepository: DeviceRepository,
-    private val outbox: OfflineCommandOutbox,
     private val notificationHelper: NotificationHelper,
     private val ids: IdGenerator,
     private val logger: Logger,
@@ -41,9 +39,9 @@ class AutomationEngine(
         val enabledAutomations = automationDao.getEnabledAutomations()
         
         for (entity in enabledAutomations) {
-            val trigger = json.decodeFromString<AutomationTrigger>(entity.triggerJson)
+            val triggers = try { json.decodeFromString<List<AutomationTrigger>>(entity.triggerJson) } catch(e: Exception) { emptyList() }
             
-            if (isTriggerMatched(trigger, topic, payload)) {
+            if (triggers.any { isTriggerMatched(it, topic, payload) }) {
                 logger.d("Automation triggered: ${entity.name}")
                 executeAutomation(entity)
             }
@@ -60,7 +58,7 @@ class AutomationEngine(
     }
 
     private suspend fun executeAutomation(entity: com.msa.msahub.features.automation.data.local.entity.AutomationEntity) {
-        val actions = json.decodeFromString<List<AutomationAction>>(entity.actionsJson)
+        val actions = try { json.decodeFromString<List<AutomationAction>>(entity.actionsJson) } catch(e: Exception) { emptyList() }
         
         for (action in actions) {
             val cmd = DomainDeviceCommand(
@@ -71,7 +69,6 @@ class AutomationEngine(
             )
             deviceRepository.sendCommand(cmd)
             
-            // ثبت لاگ
             logDao.insert(AutomationLogEntity(
                 id = ids.uuid(),
                 automationId = entity.id,
@@ -80,9 +77,8 @@ class AutomationEngine(
                 detail = "اجرای دستور ${action.command} برای دستگاه ${action.deviceId}"
             ))
             
-            // نمایش نوتیفیکیشن
             notificationHelper.showAutomationNotification(
-                "اتوماسیون اجرا شد",
+                entity.name,
                 "سناریوی '${entity.name}' با موفقیت انجام شد."
             )
             

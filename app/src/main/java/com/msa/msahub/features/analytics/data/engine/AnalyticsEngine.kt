@@ -22,13 +22,12 @@ class AnalyticsEngine(
         logger.i("Analytics: devices=${devices.size}")
 
         for (d in devices) {
-            // تعداد نمونه‌ها را کنترل می‌کنیم تا فشار DB زیاد نشود
             val recent = stateDao.getRecent(d.id, limit = 500)
                 .filter { it.updatedAtMillis >= cutoff24h }
 
             if (recent.isEmpty()) continue
 
-            fun upsertMetric(metricType: String, values: List<Double>) {
+            suspend fun upsertMetric(metricType: String, values: List<Double>) {
                 if (values.isEmpty()) return
                 val avg = values.average()
                 val max = values.maxOrNull() ?: return
@@ -37,7 +36,7 @@ class AnalyticsEngine(
                 analyticsDao.upsert(
                     SensorAnalyticsEntity(
                         deviceId = d.id,
-                        dateMillis = now, // برای نسخه‌ی اولیه: timestamp فعلی
+                        dateMillis = now,
                         metricType = metricType,
                         avgValue = avg,
                         maxValue = max,
@@ -62,7 +61,6 @@ class AnalyticsEngine(
             )
         }
 
-        // پاکسازی 90 روز قبل
         val cutoff90d = now - 90L * 24L * 60L * 60L * 1000L
         analyticsDao.deleteOldAnalytics(cutoff90d)
 

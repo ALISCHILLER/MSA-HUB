@@ -6,6 +6,6 @@ import com.msa.msahub.core.platform.notification.AppNotificationCenter
 class NotificationHelper(private val center: AppNotificationCenter) {
 
     fun showAutomationNotification(title: String, message: String) {
-        center.automationTriggered(title, message)
+        center.automationTriggered(title)
     }
 }

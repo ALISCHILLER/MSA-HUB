@@ -18,6 +18,6 @@ object PlatformModule {
         single<DeviceInfoProvider> { DeviceInfoProviderImpl() }
         single<BatteryStatusProvider> { BatteryStatusProviderImpl(androidContext()) }
         single { MsaNotificationManager(androidContext()) }
-        single<AppNotificationCenter> { MsaAppNotificationCenter(context = androidContext(), manager = get()) }
+        single<AppNotificationCenter> { MsaAppNotificationCenter(notificationManager = get()) }
     }
 }

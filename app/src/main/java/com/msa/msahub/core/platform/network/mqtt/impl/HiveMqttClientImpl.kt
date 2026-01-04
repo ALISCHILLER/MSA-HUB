@@ -17,7 +17,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
-import javax.net.ssl.SSLContext
 
 class HiveMqttClientImpl : MqttClient {
 
@@ -49,12 +48,8 @@ class HiveMqttClientImpl : MqttClient {
                 .automaticReconnectWithDefaultConfig()
 
             if (config.useTls) {
-                val context = config.sslContext
-                if (context != null) {
-                    builder.sslConfig().sslContext(context).applySslConfig()
-                } else {
-                    builder.sslWithDefaultConfig()
-                }
+                // Using default SSL config as Mqtt5SslConfigBuilder doesn't support raw SSLContext easily
+                builder.sslWithDefaultConfig()
             }
 
             config.username?.let { username ->
@@ -66,7 +61,6 @@ class HiveMqttClientImpl : MqttClient {
             val asyncClient = builder.buildAsync()
             client = asyncClient
 
-            // ✅ Enable global inbound publish listener (so incomingMessages will emit)
             asyncClient.publishes(MqttGlobalPublishFilter.ALL) { publish ->
                 handleIncomingPublish(publish)
             }

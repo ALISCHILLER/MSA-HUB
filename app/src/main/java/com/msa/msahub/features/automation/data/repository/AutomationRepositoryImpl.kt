@@ -1,23 +1,27 @@
 package com.msa.msahub.features.automation.data.repository
 
 import com.msa.msahub.features.automation.data.local.dao.AutomationDao
+import com.msa.msahub.features.automation.data.local.entity.AutomationEntity
 import com.msa.msahub.features.automation.domain.model.Automation
 import com.msa.msahub.features.automation.domain.repository.AutomationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class AutomationRepositoryImpl(
-    private val dao: AutomationDao
+    private val dao: AutomationDao,
+    private val json: Json
 ) : AutomationRepository {
 
     override fun getAutomations(): Flow<List<Automation>> {
         return dao.getAllAutomations().map { entities ->
-            entities.map { it.toDomain() }
+            entities.map { it.toDomain(json) }
         }
     }
 
-    override suspend fun addAutomation(automation: Automation) {
-        dao.insert(automation.toEntity())
+    override suspend fun saveAutomation(automation: Automation) {
+        dao.insert(automation.toEntity(json))
     }
 
     override suspend fun toggleAutomation(id: String, isEnabled: Boolean) {
@@ -27,20 +31,28 @@ class AutomationRepositoryImpl(
     override suspend fun deleteAutomation(automation: Automation) {
         dao.deleteById(automation.id)
     }
+}
 
-    // Helper to convert Entity to Domain model (assuming it's defined in the entity class)
-    private fun com.msa.msahub.features.automation.data.local.entity.AutomationEntity.toDomain(): Automation {
-        return Automation(this.id, this.name, this.isEnabled, emptyList(), emptyList()) // Triggers/Actions need to be mapped
-    }
+// Mapper extensions
+private fun AutomationEntity.toDomain(json: Json): Automation {
+    return Automation(
+        id = this.id,
+        name = this.name,
+        isEnabled = this.isEnabled,
+        triggers = try { json.decodeFromString(this.triggerJson) } catch (e: Exception) { emptyList() },
+        condition = try { this.conditionJson?.let { json.decodeFromString(it) } } catch (e: Exception) { null },
+        actions = try { json.decodeFromString(this.actionsJson) } catch (e: Exception) { emptyList() }
+    )
+}
 
-    private fun Automation.toEntity(): com.msa.msahub.features.automation.data.local.entity.AutomationEntity {
-        return com.msa.msahub.features.automation.data.local.entity.AutomationEntity(
-            id = this.id,
-            name = this.name,
-            isEnabled = this.isEnabled,
-            triggersJson = "[]", // Triggers/Actions need to be serialized
-            actionsJson = "[]",
-            createdAt = System.currentTimeMillis()
-        )
-    }
+private fun Automation.toEntity(json: Json): AutomationEntity {
+    return AutomationEntity(
+        id = this.id,
+        name = this.name,
+        isEnabled = this.isEnabled,
+        triggerJson = json.encodeToString(this.triggers),
+        conditionJson = this.condition?.let { json.encodeToString(it) },
+        actionsJson = json.encodeToString(this.actions),
+        createdAt = System.currentTimeMillis()
+    )
 }

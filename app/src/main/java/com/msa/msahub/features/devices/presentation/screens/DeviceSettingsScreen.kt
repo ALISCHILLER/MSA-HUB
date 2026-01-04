@@ -20,8 +20,7 @@ fun DeviceSettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(deviceId) {
-        viewModel.onEvent(DeviceSettingsUiEvent.SetDeviceId(deviceId))
-        viewModel.onEvent(DeviceSettingsUiEvent.Load)
+        viewModel.onEvent(DeviceSettingsUiEvent.Load(deviceId))
     }
 
     Scaffold(
@@ -40,7 +39,7 @@ fun DeviceSettingsScreen(
                 Text("Favorite")
                 Switch(
                     checked = state.isFavorite,
-                    onCheckedChange = { viewModel.onEvent(DeviceSettingsUiEvent.ToggleFavorite(it)) }
+                    onCheckedChange = { viewModel.onEvent(DeviceSettingsUiEvent.FavoriteChanged(it)) }
                 )
             }
         }

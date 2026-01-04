@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 data class AddAutomationState(
     val currentStep: Int = 1,
     val name: String = "",
-    val trigger: AutomationTrigger? = null,
+    val triggers: List<AutomationTrigger> = emptyList(),
     val condition: AutomationCondition? = null,
     val actions: List<AutomationAction> = emptyList(),
     val isSaving: Boolean = false
@@ -18,7 +18,7 @@ data class AddAutomationState(
 
 sealed interface AddAutomationEvent {
     data class UpdateName(val name: String) : AddAutomationEvent
-    data class SetTrigger(val trigger: AutomationTrigger) : AddAutomationEvent
+    data class AddTrigger(val trigger: AutomationTrigger) : AddAutomationEvent
     data class SetCondition(val condition: AutomationCondition?) : AddAutomationEvent
     data class AddAction(val action: AutomationAction) : AddAutomationEvent
     data object NextStep : AddAutomationEvent
@@ -39,7 +39,7 @@ class AddAutomationViewModel(
     override fun onEvent(event: AddAutomationEvent) {
         when (event) {
             is AddAutomationEvent.UpdateName -> updateState { copy(name = event.name) }
-            is AddAutomationEvent.SetTrigger -> updateState { copy(trigger = event.trigger) }
+            is AddAutomationEvent.AddTrigger -> updateState { copy(triggers = triggers + event.trigger) }
             is AddAutomationEvent.SetCondition -> updateState { copy(condition = event.condition) }
             is AddAutomationEvent.AddAction -> updateState { copy(actions = actions + event.action) }
             AddAutomationEvent.NextStep -> updateState { copy(currentStep = (currentStep + 1).coerceAtMost(3)) }
@@ -50,7 +50,7 @@ class AddAutomationViewModel(
 
     private fun saveAutomation() {
         val state = uiState.value
-        if (state.name.isBlank() || state.trigger == null || state.actions.isEmpty()) {
+        if (state.name.isBlank() || state.triggers.isEmpty() || state.actions.isEmpty()) {
             viewModelScope.launch { emitEffect(AddAutomationEffect.ShowError("لطفاً تمام موارد ضروری را پر کنید")) }
             return
         }
@@ -60,7 +60,8 @@ class AddAutomationViewModel(
             val newAutomation = Automation(
                 id = ids.uuid(),
                 name = state.name,
-                trigger = state.trigger!!,
+                isEnabled = true,
+                triggers = state.triggers,
                 condition = state.condition,
                 actions = state.actions
             )

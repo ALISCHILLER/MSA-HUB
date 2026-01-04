@@ -15,13 +15,11 @@ import org.koin.dsl.module
 
 object AutomationModule {
     val module = module {
-        // DAO definitions are provided by DatabaseModule
-
         // Repository
-        single<AutomationRepository> { AutomationRepositoryImpl(get()) }
+        single<AutomationRepository> { AutomationRepositoryImpl(get(), get()) }
 
         // Helper
-        single { NotificationHelper(get()) } // This will now get AppNotificationCenter
+        single { NotificationHelper(get()) }
 
         // Engine
         single {
@@ -33,7 +31,7 @@ object AutomationModule {
                 notificationHelper = get(),
                 ids = get(),
                 logger = get(),
-                scope = get<kotlinx.coroutines.CoroutineScope>(AppScopeModule.APP_SCOPE)
+                scope = get(named("app_scope"))
             )
         }
 

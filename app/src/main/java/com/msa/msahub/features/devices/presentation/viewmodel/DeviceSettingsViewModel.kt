@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.msa.msahub.features.devices.data.local.dao.DeviceDao
 import com.msa.msahub.features.devices.presentation.state.DeviceSettingsState
+import com.msa.msahub.features.devices.presentation.state.DeviceSettingsUiEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -16,7 +17,16 @@ class DeviceSettingsViewModel(
     private val _state = MutableStateFlow(DeviceSettingsState())
     val state: StateFlow<DeviceSettingsState> = _state
 
-    fun load(deviceId: String) {
+    fun onEvent(event: DeviceSettingsUiEvent) {
+        when (event) {
+            is DeviceSettingsUiEvent.Load -> load(event.deviceId)
+            is DeviceSettingsUiEvent.NameChanged -> onNameChange(event.name)
+            is DeviceSettingsUiEvent.FavoriteChanged -> onFavoriteToggle(event.isFavorite)
+            DeviceSettingsUiEvent.Save -> save()
+        }
+    }
+
+    private fun load(deviceId: String) {
         if (_state.value.deviceId == deviceId && !_state.value.isLoading) return
 
         _state.update { it.copy(deviceId = deviceId, isLoading = true, error = null, saved = false) }
@@ -39,15 +49,15 @@ class DeviceSettingsViewModel(
         }
     }
 
-    fun onNameChange(value: String) {
+    private fun onNameChange(value: String) {
         _state.update { it.copy(name = value, saved = false) }
     }
 
-    fun onFavoriteToggle(value: Boolean) {
+    private fun onFavoriteToggle(value: Boolean) {
         _state.update { it.copy(isFavorite = value, saved = false) }
     }
 
-    fun save() {
+    private fun save() {
         val s = _state.value
         if (s.deviceId.isBlank()) return
 

@@ -7,7 +7,7 @@ data class Automation(
     val id: String,
     val name: String,
     val isEnabled: Boolean = true,
-    val trigger: AutomationTrigger,
+    val triggers: List<AutomationTrigger>,
     val condition: AutomationCondition? = null,
     val actions: List<AutomationAction>
 )

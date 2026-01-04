@@ -2,6 +2,12 @@ package com.msa.msahub.core.platform.config
 
 enum class Environment { DEV, STAGING, PROD }
 
+data class HttpRuntimeConfig(
+    val baseUrl: String,
+    val connectTimeoutMs: Long = 30_000,
+    val requestTimeoutMs: Long = 30_000
+)
+
 data class MqttRuntimeConfig(
     val host: String,
     val port: Int,
@@ -21,6 +27,7 @@ data class SyncPolicy(
 
 data class RuntimeConfig(
     val env: Environment = Environment.DEV,
+    val http: HttpRuntimeConfig,
     val mqtt: MqttRuntimeConfig,
     val sync: SyncPolicy
 )

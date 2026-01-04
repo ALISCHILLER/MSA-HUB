@@ -60,7 +60,7 @@ class AndroidNetworkMonitor(
         return when {
             !hasInternet -> NetworkState.Disconnected
             validated -> NetworkState.Connected
-            else -> NetworkState.Degraded // اینترنت هست ولی هنوز validate نشده (مثلاً captive portal)
+            else -> NetworkState.Degraded("Internet available but not validated")
         }
     }
 }

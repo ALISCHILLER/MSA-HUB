@@ -3,6 +3,7 @@ package com.msa.msahub.core.platform.network.mqtt
 import com.msa.msahub.core.common.Logger
 import com.msa.msahub.core.platform.config.MqttRuntimeConfig
 import com.msa.msahub.core.platform.network.ConnectivityObserver
+import com.msa.msahub.core.platform.network.isConnected
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -32,28 +33,23 @@ class MqttConnectionManager(
         if (started) return
         started = true
 
-        // existing logic: listen network state and try connect/reconnect
         scope.launch {
             connectivityObserver.observe().collect { state ->
                 logger.i("Network state changed: $state")
                 if (state.isConnected) {
                     ensureConnected(reason = "network_connected")
-                } else {
-                    // optional: disconnect
                 }
             }
         }
 
-        // ✅ NEW: listen to config changes and reconnect when it changes
         configJob?.cancel()
         configJob = runtimeConfigProvider.config
-            .debounce(400) // جلوگیری از reconnect های پشت‌سرهم وقتی کاربر تایپ می‌کند
+            .debounce(400)
             .distinctUntilChangedByKey()
             .onEach { cfg ->
                 val prev = lastApplied
                 lastApplied = cfg
                 if (prev == null) {
-                    // اولین config
                     ensureConnected(reason = "initial_config")
                 } else if (!equivalent(prev, cfg)) {
                     logger.i("MQTT config changed => reconnect")
@@ -74,10 +70,8 @@ class MqttConnectionManager(
     private fun reconnect(reason: String) {
         scope.launch {
             reconnectMutex.withLock {
-                // در صورت نیاز کمی delay برای settle شدن شبکه/دیباونس
                 delay(150)
                 runCatching {
-                    // اگر متد شما disconnect/close فرق دارد، همین خط را مطابق API خودت تنظیم کن
                     mqttClient.disconnect()
                 }.onFailure { /* ignore */ }
 
@@ -114,15 +108,13 @@ class MqttConnectionManager(
     }
 }
 
-// helper برای distinctUntilChanged روی کلیدهای مهم
 private fun kotlinx.coroutines.flow.Flow<MqttRuntimeConfig>.distinctUntilChangedByKey() =
-    this.map { it } // no-op map برای خوانایی
-        .distinctUntilChanged { old, new ->
-            old.host == new.host &&
-            old.port == new.port &&
-            old.useTls == new.useTls &&
-            old.username == new.username &&
-            old.password == new.password &&
-            old.keepAliveSec == new.keepAliveSec &&
-            old.clientIdPrefix == new.clientIdPrefix
-        }
+    this.distinctUntilChanged { old, new ->
+        old.host == new.host &&
+        old.port == new.port &&
+        old.useTls == new.useTls &&
+        old.username == new.username &&
+        old.password == new.password &&
+        old.keepAliveSec == new.keepAliveSec &&
+        old.clientIdPrefix == new.clientIdPrefix
+    }
