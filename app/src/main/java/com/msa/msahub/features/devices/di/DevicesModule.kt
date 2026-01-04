@@ -1,5 +1,7 @@
 package com.msa.msahub.features.devices.di
 
+import com.msa.msahub.core.platform.network.http.NetworkConfig
+import com.msa.msahub.core.platform.network.http.NetworkConfigProvider
 import com.msa.msahub.core.platform.network.mqtt.MqttClient
 import com.msa.msahub.features.devices.data.mapper.DeviceCommandMapper
 import com.msa.msahub.features.devices.data.mapper.DeviceMapper
@@ -33,9 +35,10 @@ object DevicesModule {
 
         // --- Remote ---
         single<DeviceApiService> { 
+            val cfg = get<NetworkConfigProvider>().current()
             DeviceApiServiceImpl(
                 httpClient = get(),
-                networkConfig = get(),
+                networkConfig = NetworkConfig(cfg.baseUrl, cfg.connectTimeoutMs, cfg.requestTimeoutMs),
                 mapper = get()
             )
         }
