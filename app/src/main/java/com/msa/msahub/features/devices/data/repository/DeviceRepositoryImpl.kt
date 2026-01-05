@@ -50,6 +50,13 @@ class DeviceRepositoryImpl(
         Result.Failure(AppError.Network("Sync failed: ${t.message}"))
     }
 
+    override suspend fun addDevice(device: Device): Result<Unit> = try {
+        deviceDao.upsert(deviceMapper.toEntity(device))
+        Result.Success(Unit)
+    } catch (t: Throwable) {
+        Result.Failure(AppError.Database("Failed to add device", t))
+    }
+
     override suspend fun updateDeviceFavorite(deviceId: String, isFavorite: Boolean): Result<Unit> = try {
         deviceDao.updateFavorite(deviceId, isFavorite)
         Result.Success(Unit)
@@ -118,13 +125,13 @@ class DeviceRepositoryImpl(
         else {
             offlineCommandDao.insert(
                 commandMapper.toOfflineEntity(
-                    UUID.randomUUID().toString(),
-                    command.deviceId,
-                    topic,
-                    payload,
-                    Qos.AtLeastOnce,
-                    false,
-                    command.createdAtMillis,
+                    id = UUID.randomUUID().toString(),
+                    deviceId = command.deviceId,
+                    topic = topic,
+                    payload = payload,
+                    qos = Qos.AtLeastOnce,
+                    retained = false,
+                    createdAtMillis = command.createdAtMillis,
                     correlationId = command.commandId
                 )
             )

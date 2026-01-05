@@ -3,11 +3,14 @@ package com.msa.msahub.app
 import android.app.Application
 import com.msa.msahub.background.scheduler.WorkScheduler
 import com.msa.msahub.core.common.Logger
+import com.msa.msahub.core.di.AppScopeModule
 import com.msa.msahub.core.di.KoinInitializer
 import com.msa.msahub.core.platform.database.DatabaseInitializer
 import com.msa.msahub.core.platform.network.mqtt.MqttConnectionManager
 import com.msa.msahub.features.automation.domain.AutomationEngine
 import com.msa.msahub.features.devices.data.remote.mqtt.MqttIngestor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
@@ -19,27 +22,32 @@ object AppInitializer : KoinComponent {
 
     fun init(app: Application) {
         initLogging(app)
+        
+        // ۱. ساخت گراف DI (باید سریع و روی رشته اصلی باشد)
         KoinInitializer.init(app)
 
-        runCatching {
-            // ۱. مقداردهی اولیه دیتابیس (Seed)
-            get<DatabaseInitializer>().seedIfNeeded()
+        // ۲. اجرای کارهای سنگین در پس‌زمینه برای جلوگیری از ANR
+        val appScope = get<CoroutineScope>(AppScopeModule.APP_SCOPE)
+        
+        appScope.launch {
+            runCatching {
+                // مقداردهی اولیه دیتابیس (سنگین)
+                get<DatabaseInitializer>().seedIfNeeded()
 
-            // ۲. مدیریت اتصال MQTT
-            get<MqttConnectionManager>().start()
+                // مدیریت اتصال MQTT (سنگین - شامل شبکه و TLS)
+                get<MqttConnectionManager>().start()
 
-            // ۳. شروع Ingestor برای دریافت وضعیت دستگاه‌ها
-            get<MqttIngestor>().start()
+                // شروع Ingestor و موتور اتوماسیون
+                get<MqttIngestor>().start()
+                get<AutomationEngine>().start()
 
-            // ۳.۵ ✅ شروع موتور اتوماسیون (مبتنی بر incomingMessages)
-            get<AutomationEngine>().start()
-
-            // ۴. زمان‌بندی کارهای پس‌زمینه (WorkManager)
-            get<WorkScheduler>().scheduleAll()
-        }.onFailure { e ->
-            // ❗ در Release: بهتره به Crashlytics/Sentry گزارش بدی (اگر داری)
-            logger.e("AppInitializer failed. Running in degraded mode.", e)
-            // در حالت degraded حداقل WorkScheduler یا MQTT رو استارت نکن که loop کرش نشه
+                // زمان‌بندی کارهای پس‌زمینه (WorkManager)
+                get<WorkScheduler>().scheduleAll()
+                
+                logger.i("AppInitializer: All background services started successfully.")
+            }.onFailure { e ->
+                logger.e("AppInitializer background start failed", e)
+            }
         }
     }
 
@@ -49,9 +57,7 @@ object AppInitializer : KoinComponent {
         } else {
             Timber.plant(object : Timber.Tree() {
                 override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-                    // فقط WARN/ERROR
                     if (priority < android.util.Log.WARN) return
-                    // پیام‌های حساس را sanitize کن
                     val safe = message
                         .replace(Regex("Bearer\\s+[A-Za-z0-9\\-\\._]+"), "Bearer ***")
                         .replace(Regex("password\\s*=\\s*\\S+", RegexOption.IGNORE_CASE), "password=***")

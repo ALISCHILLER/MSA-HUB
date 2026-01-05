@@ -6,9 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColors = darkColorScheme()
-private val LightColors = lightColorScheme()
-
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -20,12 +17,13 @@ fun AppTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColors
-        else -> LightColors
+        darkTheme -> MsaDarkColorScheme
+        else -> MsaLightColorScheme
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = Typography, // Assuming Typography is defined in Typography.kt
         content = content
     )
 }

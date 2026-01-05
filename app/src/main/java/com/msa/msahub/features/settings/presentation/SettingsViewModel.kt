@@ -1,13 +1,12 @@
 package com.msa.msahub.features.settings.presentation
 
+import android.net.nsd.NsdServiceInfo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.msa.msahub.core.platform.config.AppConfigStore
+import com.msa.msahub.core.platform.network.LocalDiscoveryManager
 import com.msa.msahub.core.security.auth.AuthTokenStore
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
@@ -18,12 +17,15 @@ data class SettingsUiState(
     val mqttPassword: String = "",
     val apiBaseUrl: String = "",
     val authToken: String = "",
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val isScanningLocal: Boolean = false,
+    val discoveredHubs: List<NsdServiceInfo> = emptyList()
 )
 
 class SettingsViewModel(
     private val configStore: AppConfigStore,
-    private val authTokenStore: AuthTokenStore
+    private val authTokenStore: AuthTokenStore,
+    private val localDiscoveryManager: LocalDiscoveryManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -31,6 +33,7 @@ class SettingsViewModel(
 
     init {
         observeSettings()
+        observeLocalServices()
     }
 
     private fun observeSettings() {
@@ -44,10 +47,17 @@ class SettingsViewModel(
                         mqttUsername = cfg.mqtt.username.orEmpty(),
                         mqttPassword = cfg.mqtt.password.orEmpty(),
                         apiBaseUrl = cfg.http.baseUrl,
-                        authToken = authTokenStore.getToken() ?: "",
-                        isSaved = false
+                        authToken = authTokenStore.getToken() ?: ""
                     )
                 }
+            }
+        }
+    }
+
+    private fun observeLocalServices() {
+        viewModelScope.launch {
+            localDiscoveryManager.discoveredServices.collect { services ->
+                _state.update { it.copy(discoveredHubs = services) }
             }
         }
     }
@@ -59,6 +69,26 @@ class SettingsViewModel(
     fun onMqttPasswordChange(value: String) = _state.update { it.copy(mqttPassword = value) }
     fun onApiUrlChange(value: String) = _state.update { it.copy(apiBaseUrl = value) }
     fun onTokenChange(value: String) = _state.update { it.copy(authToken = value) }
+
+    fun startLocalDiscovery() {
+        _state.update { it.copy(isScanningLocal = true) }
+        localDiscoveryManager.startDiscovery()
+    }
+
+    fun stopLocalDiscovery() {
+        _state.update { it.copy(isScanningLocal = false) }
+        localDiscoveryManager.stopDiscovery()
+    }
+
+    fun selectDiscoveredHub(hub: NsdServiceInfo) {
+        _state.update { 
+            it.copy(
+                mqttHost = hub.host.hostAddress ?: "",
+                mqttPort = hub.port.toString()
+            )
+        }
+        stopLocalDiscovery()
+    }
 
     fun saveSettings() {
         viewModelScope.launch {

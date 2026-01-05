@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">MSA Hub</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="system_status">System Status</string>
+    <string name="devices_online">%1$d of %2$d devices online</string>
+    <string name="quick_scenes">Quick Scenes</string>
+    <string name="favorite_devices">Favorite Devices</string>
+    <string name="see_all">See All</string>
+    <string name="no_favorites">No favorites yet. Add some from the devices tab!</string>
+    <string name="back">Back</string>
+    <string name="save">Save</string>
+    <string name="settings">Settings</string>
+    <string name="error_loading">An error occurred while loading data.</string>
+    <string name="retry">Retry</string>
 </resources>

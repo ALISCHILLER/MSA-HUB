@@ -7,6 +7,7 @@ import com.msa.msahub.features.devices.domain.model.DeviceType
 interface DeviceApiService {
     suspend fun fetchDevices(): List<Device>
     suspend fun fetchDeviceDetail(deviceId: String): Device?
+    suspend fun registerDevice(device: Device): Boolean
 }
 
 class FakeDeviceApiService : DeviceApiService {
@@ -36,5 +37,10 @@ class FakeDeviceApiService : DeviceApiService {
 
     override suspend fun fetchDeviceDetail(deviceId: String): Device? {
         return fetchDevices().firstOrNull { it.id == deviceId }
+    }
+
+    override suspend fun registerDevice(device: Device): Boolean {
+        // In a real app, this would make a POST request
+        return true
     }
 }

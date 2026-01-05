@@ -15,12 +15,14 @@ interface ConnectivityObserver {
     fun observe(): Flow<Status>
 
     enum class Status {
-        Available, Unavailable, Losing, Lost
+        Available, Unavailable, Losing, Lost, WiFi, Cellular
     }
 }
 
 val ConnectivityObserver.Status.isConnected: Boolean
-    get() = this == ConnectivityObserver.Status.Available
+    get() = this == ConnectivityObserver.Status.Available || 
+           this == ConnectivityObserver.Status.WiFi || 
+           this == ConnectivityObserver.Status.Cellular
 
 class NetworkConnectivityObserver(context: Context) : ConnectivityObserver {
     private val connectivityManager =
@@ -30,7 +32,13 @@ class NetworkConnectivityObserver(context: Context) : ConnectivityObserver {
         return callbackFlow {
             val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    launch { send(ConnectivityObserver.Status.Available) }
+                    val caps = connectivityManager.getNetworkCapabilities(network)
+                    val status = when {
+                        caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> ConnectivityObserver.Status.WiFi
+                        caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> ConnectivityObserver.Status.Cellular
+                        else -> ConnectivityObserver.Status.Available
+                    }
+                    launch { send(status) }
                 }
 
                 override fun onLosing(network: Network, maxMsToLive: Int) {

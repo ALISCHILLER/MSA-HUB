@@ -11,10 +11,10 @@ interface DeviceRepository {
     fun observeDeviceHistory(deviceId: String): Flow<List<DeviceHistoryItem>>
     
     suspend fun syncDevices(): Result<Unit>
+    suspend fun addDevice(device: Device): Result<Unit>
     suspend fun sendCommand(command: DeviceCommand): Result<CommandAck>
     suspend fun updateDeviceFavorite(deviceId: String, isFavorite: Boolean): Result<Unit>
     
-    // متدهای اضافه شده برای هماهنگی با Workerها و UseCaseها
     suspend fun getDevices(forceRefresh: Boolean = false): Result<List<Device>>
     suspend fun getDeviceDetail(deviceId: String, forceRefresh: Boolean = false): Result<Device>
     suspend fun getDeviceHistory(deviceId: String, limit: Int = 50): Result<List<DeviceState>>
