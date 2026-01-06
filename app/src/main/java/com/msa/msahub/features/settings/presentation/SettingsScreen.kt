@@ -2,6 +2,8 @@ package com.msa.msahub.features.settings.presentation
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,16 +40,11 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             LargeTopAppBar(
-                title = { 
+                title = {
                     Text(
                         stringResource(R.string.settings),
                         fontWeight = FontWeight.ExtraBold
                     )
-                },
-                actions = {
-                    IconButton(onClick = { /* Reset to Defaults */ }) {
-                        Icon(Icons.Outlined.RestartAlt, contentDescription = "Reset")
-                    }
                 }
             )
         },
@@ -63,7 +60,43 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(Dimens.xs))
 
-            // ۱. بخش تنظیمات پروتکل MQTT (Connection)
+            // ۱. بخش کشف هاب محلی (Local Discovery)
+            SettingsSection(
+                title = "Local Hub Discovery",
+                icon = Icons.Outlined.Search,
+                description = "Scan your WiFi network for available MSA Hubs."
+            ) {
+                Button(
+                    onClick = { if (state.isScanningLocal) viewModel.stopLocalDiscovery() else viewModel.startLocalDiscovery() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = if (state.isScanningLocal) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
+                ) {
+                    Icon(if (state.isScanningLocal) Icons.Outlined.Stop else Icons.Outlined.Radar, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (state.isScanningLocal) "Stop Scanning" else "Start Network Scan")
+                }
+
+                if (state.discoveredHubs.isNotEmpty()) {
+                    Text("Discovered Hubs:", style = MaterialTheme.typography.labelLarge)
+                    state.discoveredHubs.forEach { hub ->
+                        OutlinedCard(
+                            onClick = { viewModel.selectDiscoveredHub(hub) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Router, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(hub.serviceName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text("${hub.host.hostAddress}:${hub.port}", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ۲. تنظیمات MQTT
             SettingsSection(
                 title = "MQTT Connectivity",
                 icon = Icons.Outlined.Hub,
@@ -75,48 +108,22 @@ fun SettingsScreen(
                     label = { Text("Broker Address") },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Outlined.Dns, null) },
-                    singleLine = true,
                     shape = MaterialTheme.shapes.medium
                 )
 
-                Row(
+                OutlinedTextField(
+                    value = state.mqttPort,
+                    onValueChange = viewModel::onMqttPortChange,
+                    label = { Text("Port") },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.md)
-                ) {
-                    OutlinedTextField(
-                        value = state.mqttPort,
-                        onValueChange = viewModel::onMqttPortChange,
-                        label = { Text("Port") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.medium
-                    )
-                    
-                    Surface(
-                        modifier = Modifier.weight(1.2f).height(56.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = Dimens.sm),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = state.mqttUseTls,
-                                onCheckedChange = viewModel::onMqttTlsChange
-                            )
-                            Text("Use TLS", style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
+                    shape = MaterialTheme.shapes.medium
+                )
             }
 
-            // ۲. بخش امنیت و اعتبارنامه (Credentials)
+            // ۳. امنیت و احراز هویت
             SettingsSection(
                 title = "Authentication",
-                icon = Icons.Outlined.VpnKey,
-                description = "Secure access to the MQTT broker and API."
+                icon = Icons.Outlined.VpnKey
             ) {
                 OutlinedTextField(
                     value = state.mqttUsername,
@@ -124,7 +131,6 @@ fun SettingsScreen(
                     label = { Text("Username") },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Outlined.Person, null) },
-                    singleLine = true,
                     shape = MaterialTheme.shapes.medium
                 )
 
@@ -136,63 +142,24 @@ fun SettingsScreen(
                     leadingIcon = { Icon(Icons.Outlined.Lock, null) },
                     trailingIcon = {
                         IconButton(onClick = { showPassword = !showPassword }) {
-                            Icon(
-                                if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                null
-                            )
+                            Icon(if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, null)
                         }
                     },
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                    singleLine = true,
                     shape = MaterialTheme.shapes.medium
                 )
-            }
-
-            // ۳. تنظیمات API سرور
-            SettingsSection(
-                title = "Backend Service",
-                icon = Icons.Outlined.CloudQueue,
-                description = "Manage connection to the central management API."
-            ) {
-                OutlinedTextField(
-                    value = state.apiBaseUrl,
-                    onValueChange = viewModel::onApiUrlChange,
-                    label = { Text("API Base URL") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Outlined.Link, null) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium
-                )
-            }
-
-            // ۴. اطلاعات سیستم (Read-only)
-            SettingsSection(
-                title = "System Information",
-                icon = Icons.Outlined.Info
-            ) {
-                InfoRow(label = "App Version", value = "0.10.0 (Stable)")
-                InfoRow(label = "Encryption", value = "AES-256-GCM Active")
-                InfoRow(label = "Hub Status", value = "Healthy")
             }
 
             Button(
                 onClick = viewModel::saveSettings,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(bottom = Dimens.md),
-                shape = MaterialTheme.shapes.large,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                modifier = Modifier.fillMaxWidth().height(64.dp),
+                shape = MaterialTheme.shapes.large
             ) {
                 Icon(Icons.Outlined.Save, null)
-                Spacer(Modifier.width(Dimens.sm))
-                Text(
-                    "SAVE CONFIGURATION",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Spacer(Modifier.width(8.dp))
+                Text("SAVE CONFIGURATION", fontWeight = FontWeight.Bold)
             }
-            
+
             Spacer(modifier = Modifier.height(Dimens.xxl))
         }
     }
@@ -206,55 +173,20 @@ private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
         }
-        
-        description?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp)
-            )
-        }
-        
+        description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
-            Column(
-                modifier = Modifier.padding(Dimens.lg),
-                verticalArrangement = Arrangement.spacedBy(Dimens.md)
-            ) {
+            Column(modifier = Modifier.padding(Dimens.lg), verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                 content()
             }
         }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
     }
 }

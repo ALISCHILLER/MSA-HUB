@@ -19,15 +19,21 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         logger.i("SyncWorker: Starting full synchronization...")
         
-        return try {
-            deviceRepository.flushOutbox(max = 50)
-            deviceRepository.syncDevices() // استفاده از متد صحیح
-            
-            logger.i("SyncWorker: Synchronization completed successfully.")
-            Result.success()
-        } catch (e: Exception) {
-            logger.e("SyncWorker: Sync failed", e)
-            Result.retry()
+        val flushResult = deviceRepository.flushOutbox(max = 50)
+        val flushWorkerResult = WorkerResultMapper.map(flushResult)
+        if (flushWorkerResult != androidx.work.ListenableWorker.Result.success()) {
+            return flushWorkerResult
         }
+
+        val syncResult = deviceRepository.syncDevices()
+        val finalResult = WorkerResultMapper.map(syncResult)
+        
+        if (finalResult == androidx.work.ListenableWorker.Result.success()) {
+            logger.i("SyncWorker: Synchronization completed successfully.")
+        } else {
+            logger.e("SyncWorker: Synchronization failed")
+        }
+        
+        return finalResult
     }
 }

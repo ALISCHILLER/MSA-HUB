@@ -3,6 +3,8 @@ package com.msa.msahub.core.di
 import androidx.room.Room
 import com.msa.msahub.core.platform.database.AppDatabase
 import com.msa.msahub.core.platform.database.DatabaseInitializer
+import com.msa.msahub.core.security.storage.SecurePrefs
+import net.sqlcipher.database.SupportFactory
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -11,11 +13,21 @@ object DatabaseModule {
     val module = module {
 
         single<AppDatabase> {
+            val securePrefs = get<SecurePrefs>()
+            val passphrase = securePrefs.getString("db_passphrase") ?: run {
+                val newPass = java.util.UUID.randomUUID().toString()
+                securePrefs.saveString("db_passphrase", newPass)
+                newPass
+            }
+
+            val factory = SupportFactory(passphrase.toByteArray())
+
             Room.databaseBuilder(
                 context = androidContext(),
                 klass = AppDatabase::class.java,
-                name = "msa_hub.db"
+                name = "msa_hub_secure.db"
             )
+                .openHelperFactory(factory)
                 .fallbackToDestructiveMigration()
                 .build()
         }

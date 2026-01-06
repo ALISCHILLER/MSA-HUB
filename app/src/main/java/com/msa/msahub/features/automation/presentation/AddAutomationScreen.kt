@@ -1,10 +1,7 @@
 package com.msa.msahub.features.automation.presentation
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -13,14 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.msa.msahub.R
 import com.msa.msahub.core.ui.design.Dimens
 import com.msa.msahub.features.automation.domain.model.*
-import com.msa.msahub.features.devices.domain.model.Device
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,12 +39,12 @@ fun AddAutomationScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
-                        "Create Automation", 
+                        "Create Automation",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    ) 
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -75,7 +69,7 @@ fun AddAutomationScreen(
                 modifier = Modifier.fillMaxWidth().height(4.dp),
                 color = MaterialTheme.colorScheme.primary
             )
-            
+
             StepContent(
                 step = state.currentStep,
                 state = state,
@@ -108,7 +102,7 @@ fun StepContent(
         ) {
             when (currentStep) {
                 1 -> TriggerStep(state, viewModel)
-                2 -> ConditionStep(state, viewModel)
+                2 -> ConditionStep()
                 3 -> ActionStep(state, viewModel)
             }
         }
@@ -116,9 +110,9 @@ fun StepContent(
 }
 
 @Composable
-fun TriggerStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
+fun ColumnScope.TriggerStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
     Text("Name & Triggers", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-    
+
     OutlinedTextField(
         value = state.name,
         onValueChange = { viewModel.onEvent(AddAutomationEvent.UpdateName(it)) },
@@ -127,10 +121,10 @@ fun TriggerStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
         shape = MaterialTheme.shapes.medium
     )
 
-    Divider(modifier = Modifier.padding(vertical = Dimens.sm))
+    HorizontalDivider(modifier = Modifier.padding(vertical = Dimens.sm))
 
-    Text("Triggers", style = MaterialTheme.typography.titleMedium)
-    
+    Text("Triggers", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start))
+
     if (state.triggers.isEmpty()) {
         Text("No triggers added. Add at least one.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
@@ -140,7 +134,7 @@ fun TriggerStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
     }
 
     OutlinedButton(
-        onClick = { 
+        onClick = {
             viewModel.onEvent(AddAutomationEvent.AddTrigger(AutomationTrigger.TimeSchedule("0 8 * * *")))
         },
         modifier = Modifier.fillMaxWidth()
@@ -180,15 +174,15 @@ fun TriggerItem(trigger: AutomationTrigger, onRemove: () -> Unit) {
 }
 
 @Composable
-fun ConditionStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
+fun ColumnScope.ConditionStep() {
     Text("Conditions (Optional)", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
     Text("Add rules that must be true for the automation to run.", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-    
+
     Icon(Icons.Default.Tune, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
 }
 
 @Composable
-fun ActionStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
+fun ColumnScope.ActionStep(state: AddAutomationState, viewModel: AddAutomationViewModel) {
     Text("Actions", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
     
     if (state.actions.isEmpty()) {

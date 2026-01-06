@@ -4,17 +4,11 @@ import com.msa.msahub.core.common.Logger
 import com.msa.msahub.core.platform.config.MqttRuntimeConfig
 import com.msa.msahub.core.platform.network.ConnectivityObserver
 import com.msa.msahub.core.platform.network.isConnected
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.pow
 
 class MqttConnectionManager(
     private val mqttClient: MqttClient,
@@ -28,57 +22,91 @@ class MqttConnectionManager(
     private var configJob: Job? = null
     private var lastApplied: MqttRuntimeConfig? = null
     private var started = false
+    
+    // Exponential Backoff parameters
+    private var retryAttempt = 0
+    private val baseDelayMs = 2000L
+    private val maxDelayMs = 60000L
 
     fun start() {
         if (started) return
         started = true
 
+        // Monitoring network changes
         scope.launch {
             connectivityObserver.observe().collect { state ->
                 logger.i("Network state changed: $state")
                 if (state.isConnected) {
+                    resetBackoff()
                     ensureConnected(reason = "network_connected")
                 }
             }
         }
 
+        // Monitoring config changes
         configJob?.cancel()
         configJob = runtimeConfigProvider.config
-            .debounce(400)
-            .distinctUntilChangedByKey()
+            .debounce(500)
             .onEach { cfg ->
-                val prev = lastApplied
-                lastApplied = cfg
-                if (prev == null) {
-                    ensureConnected(reason = "initial_config")
-                } else if (!equivalent(prev, cfg)) {
-                    logger.i("MQTT config changed => reconnect")
+                if (lastApplied != null && !equivalent(lastApplied!!, cfg)) {
+                    logger.i("MQTT config changed => reconnecting")
+                    resetBackoff()
                     reconnect(reason = "config_changed")
                 }
+                lastApplied = cfg
             }
             .launchIn(scope)
+            
+        // Initial connection
+        ensureConnected(reason = "startup")
     }
 
     private fun ensureConnected(reason: String) {
         scope.launch {
-            val cfg = buildMqttConfig(runtimeConfigProvider.current())
-            runCatching { mqttClient.connect(cfg) }
-                .onFailure { e -> logger.e("MQTT connect failed ($reason)", e) }
+            if (mqttClient.connectionState.value == MqttConnectionState.Connected) return@launch
+            connectInternal(reason)
         }
+    }
+
+    private suspend fun connectInternal(reason: String) {
+        reconnectMutex.withLock {
+            val cfg = buildMqttConfig(runtimeConfigProvider.current())
+            runCatching {
+                mqttClient.connect(cfg)
+                resetBackoff()
+            }.onFailure { e ->
+                logger.e("MQTT connection failed ($reason): ${e.message}")
+                scheduleRetry(reason)
+            }
+        }
+    }
+
+    private fun scheduleRetry(reason: String) {
+        val delay = calculateBackoff()
+        logger.d("Scheduling MQTT retry in ${delay}ms (Attempt: $retryAttempt)")
+        
+        scope.launch {
+            delay(delay)
+            if (mqttClient.connectionState.value != MqttConnectionState.Connected) {
+                retryAttempt++
+                connectInternal("retry_$reason")
+            }
+        }
+    }
+
+    private fun calculateBackoff(): Long {
+        val exp = 2.0.pow(retryAttempt.toDouble()).toLong()
+        return (baseDelayMs * exp).coerceAtMost(maxDelayMs)
+    }
+
+    private fun resetBackoff() {
+        retryAttempt = 0
     }
 
     private fun reconnect(reason: String) {
         scope.launch {
-            reconnectMutex.withLock {
-                delay(150)
-                runCatching {
-                    mqttClient.disconnect()
-                }.onFailure { /* ignore */ }
-
-                val cfg = buildMqttConfig(runtimeConfigProvider.current())
-                runCatching { mqttClient.connect(cfg) }
-                    .onFailure { e -> logger.e("MQTT reconnect failed ($reason)", e) }
-            }
+            runCatching { mqttClient.disconnect() }
+            connectInternal(reason)
         }
     }
 
@@ -87,34 +115,18 @@ class MqttConnectionManager(
         return MqttConfig(
             host = m.host,
             port = m.port,
-            clientId = "${m.clientIdPrefix}_${System.currentTimeMillis()}",
+            clientId = m.clientIdPrefix, // Using stable prefix from config
             username = m.username,
             password = m.password,
             useTls = m.useTls,
             keepAlive = m.keepAliveSec,
-            cleanStart = true,
+            cleanStart = false, // Session persistence
             sslContext = ssl
         )
     }
 
     private fun equivalent(a: MqttRuntimeConfig, b: MqttRuntimeConfig): Boolean {
-        return a.host == b.host &&
-            a.port == b.port &&
-            a.useTls == b.useTls &&
-            a.username == b.username &&
-            a.password == b.password &&
-            a.keepAliveSec == b.keepAliveSec &&
-            a.clientIdPrefix == b.clientIdPrefix
+        return a.host == b.host && a.port == b.port && a.useTls == b.useTls &&
+               a.username == b.username && a.password == b.password
     }
 }
-
-private fun kotlinx.coroutines.flow.Flow<MqttRuntimeConfig>.distinctUntilChangedByKey() =
-    this.distinctUntilChanged { old, new ->
-        old.host == new.host &&
-        old.port == new.port &&
-        old.useTls == new.useTls &&
-        old.username == new.username &&
-        old.password == new.password &&
-        old.keepAliveSec == new.keepAliveSec &&
-        old.clientIdPrefix == new.clientIdPrefix
-    }
