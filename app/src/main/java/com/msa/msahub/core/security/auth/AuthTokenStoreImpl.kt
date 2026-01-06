@@ -17,21 +17,20 @@ class AuthTokenStoreImpl(
     override val tokenState: StateFlow<String?> = _tokenState
 
     init {
-        // load token once at startup (no runBlocking)
         appScope.launch {
             _tokenState.value = securePrefs.getString(tokenKey)
         }
     }
 
     override suspend fun saveToken(token: String) {
-        securePrefs.putString(tokenKey, token)
+        securePrefs.saveString(tokenKey, token)
         _tokenState.value = token
     }
 
     override suspend fun getToken(): String? = securePrefs.getString(tokenKey)
 
     override suspend fun clearToken() {
-        securePrefs.putString(tokenKey, null)
+        securePrefs.saveString(tokenKey, null)
         _tokenState.value = null
     }
 }

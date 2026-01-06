@@ -1,6 +1,5 @@
 package com.msa.msahub.features.automation.di
 
-import com.msa.msahub.core.di.AppScopeModule
 import com.msa.msahub.core.observability.NotificationHelper
 import com.msa.msahub.features.automation.data.repository.AutomationRepositoryImpl
 import com.msa.msahub.features.automation.domain.AutomationEngine
@@ -37,7 +36,7 @@ object AutomationModule {
 
         // ViewModels
         viewModel { AutomationListViewModel(get()) }
-        viewModel { AddAutomationViewModel(get(), get()) }
+        viewModel { AddAutomationViewModel(get(), get(), get()) }
         viewModel { AutomationLogViewModel(get()) }
     }
 }

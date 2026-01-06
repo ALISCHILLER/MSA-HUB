@@ -95,8 +95,8 @@ class SettingsViewModel(
             configStore.setMqttHost(_state.value.mqttHost)
             configStore.setMqttPort(_state.value.mqttPort.toIntOrNull() ?: 1883)
             configStore.setMqttUseTls(_state.value.mqttUseTls)
-            configStore.setMqttUser(_state.value.mqttUsername.ifBlank { null })
-            configStore.setMqttPass(_state.value.mqttPassword.ifBlank { null })
+            configStore.setMqttUsername(_state.value.mqttUsername.ifBlank { null })
+            configStore.setMqttPassword(_state.value.mqttPassword.ifBlank { null })
             configStore.setApiBaseUrl(_state.value.apiBaseUrl)
             authTokenStore.saveToken(_state.value.authToken)
             _state.update { it.copy(isSaved = true) }

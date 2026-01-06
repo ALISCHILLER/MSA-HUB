@@ -3,6 +3,7 @@ package com.msa.msahub.core.di
 import com.msa.msahub.core.common.JsonProvider
 import com.msa.msahub.core.platform.config.AppConfigStore
 import com.msa.msahub.core.platform.network.ConnectivityObserver
+import com.msa.msahub.core.platform.network.LocalDiscoveryManager
 import com.msa.msahub.core.platform.network.NetworkConnectivityObserver
 import com.msa.msahub.core.platform.network.http.DataStoreNetworkConfigProvider
 import com.msa.msahub.core.platform.network.http.KtorClientFactory
@@ -19,7 +20,7 @@ import org.koin.dsl.module
 object NetworkModule {
     val module = module {
 
-        single { AppConfigStore(androidContext()) }
+        single { AppConfigStore(androidContext(), get()) }
         single { JsonProvider.json }
 
         single<NetworkConfigProvider> {
@@ -36,7 +37,6 @@ object NetworkModule {
             )
         }
 
-        // ✅ TLS provider
         single { TlsProvider() }
 
         single {
@@ -77,5 +77,7 @@ object NetworkModule {
                 logger = get()
             )
         }
+
+        single { LocalDiscoveryManager(androidContext(), get()) }
     }
 }

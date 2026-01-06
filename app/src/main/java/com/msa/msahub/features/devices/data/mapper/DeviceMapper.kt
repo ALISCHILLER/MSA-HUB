@@ -39,18 +39,6 @@ class DeviceMapper {
         )
     }
 
-    fun fromRemote(event: DeviceStatusEvent): Device {
-        return Device(
-            id = event.deviceId,
-            name = "Device ${event.deviceId}",
-            type = DeviceType.UNKNOWN,
-            capabilities = emptySet(),
-            isFavorite = false,
-            roomName = null,
-            lastSeenMillis = event.timestamp
-        )
-    }
-
     fun fromRemote(model: DeviceRemoteModel): Device {
         val caps = model.capabilities
             .mapNotNull { runCatching { DeviceCapability.valueOf(it) }.getOrNull() }
@@ -61,9 +49,20 @@ class DeviceMapper {
             name = model.name,
             type = runCatching { DeviceType.valueOf(model.type) }.getOrDefault(DeviceType.UNKNOWN),
             capabilities = caps,
-            isFavorite = false, // اطلاعات Favorite معمولا لوکال است
+            isFavorite = false,
             roomName = model.room,
             lastSeenMillis = model.lastSeen
+        )
+    }
+
+    fun toRemote(device: Device): DeviceRemoteModel {
+        return DeviceRemoteModel(
+            id = device.id,
+            name = device.name,
+            type = device.type.name,
+            capabilities = device.capabilities.map { it.name },
+            room = device.roomName,
+            lastSeen = device.lastSeenMillis
         )
     }
 }

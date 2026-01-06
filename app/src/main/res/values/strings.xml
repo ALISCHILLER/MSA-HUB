@@ -1,5 +1,27 @@
 <resources>
-    <string name="app_name">MSA Hub</string>
+    <string name="app_name">MSA HUB</string>
+
+    <!-- Nav -->
+    <string name="nav_home">Home</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_scenes">Scenes</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="common_save">Save</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_refresh">Refresh</string>
+    <string name="common_back">Back</string>
+    <string name="common_create">Create</string>
+
+    <!-- Home -->
+    <string name="home_title">Home</string>
+    <string name="home_system_status_title">System Status</string>
+    <string name="home_kpi_devices">Devices</string>
+    <string name="home_kpi_alerts">Alerts</string>
+    <string name="home_quick_devices">Devices</string>
+    <string name="home_quick_settings">Settings</string>
+    <string name="home_quick_alerts">Alerts</string>
     <string name="dashboard_title">Dashboard</string>
     <string name="system_status">System Status</string>
     <string name="devices_online">%1$d of %2$d devices online</string>
@@ -7,9 +29,36 @@
     <string name="favorite_devices">Favorite Devices</string>
     <string name="see_all">See All</string>
     <string name="no_favorites">No favorites yet. Add some from the devices tab!</string>
-    <string name="back">Back</string>
-    <string name="save">Save</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Devices</string>
+    <string name="devices_empty_title">No devices</string>
+    <string name="devices_empty_message">Add your first device to get started.</string>
+    <string name="devices_empty_action">Add device</string>
+    <string name="devices_error_title">Something went wrong</string>
+    <string name="devices_error_message">Could not load devices.</string>
+    <string name="devices_status_online">Online</string>
+    <string name="devices_status_offline">Offline</string>
+    <string name="devices_status_error">Error</string>
+    <string name="devices_last_seen_format">Last seen: %1$s</string>
+
+    <!-- Scenes -->
+    <string name="scenes_title">Scenes</string>
+    <string name="scenes_empty_title">No scenes</string>
+    <string name="scenes_empty_message">Create a scene to automate your devices.</string>
+    <string name="scenes_empty_action">Create scene</string>
+
+    <!-- Settings -->
     <string name="settings">Settings</string>
-    <string name="error_loading">An error occurred while loading data.</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_mqtt">MQTT</string>
+    <string name="settings_section_credentials">Credentials</string>
+    <string name="settings_broker_host">Broker Host</string>
+    <string name="settings_port">Port</string>
+    <string name="settings_username">Username</string>
+    <string name="settings_password">Password</string>
+    <string name="settings_snackbar_saved">Saved</string>
+    <string name="settings_snackbar_invalid">Host/Port is required</string>
+    <string name="save">Save</string>
     <string name="retry">Retry</string>
 </resources>

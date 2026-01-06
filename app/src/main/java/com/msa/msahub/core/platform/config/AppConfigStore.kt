@@ -4,12 +4,16 @@ import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.msa.msahub.app.AppConfig
+import com.msa.msahub.core.security.storage.SecurePrefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "msa_config")
 
-class AppConfigStore(private val context: Context) {
+class AppConfigStore(
+    private val context: Context,
+    private val securePrefs: SecurePrefs
+) {
 
     private object Keys {
         val ENV = stringPreferencesKey("env")
@@ -20,6 +24,7 @@ class AppConfigStore(private val context: Context) {
         val MQTT_HOST = stringPreferencesKey("mqtt_host")
         val MQTT_PORT = intPreferencesKey("mqtt_port")
         val MQTT_TLS = booleanPreferencesKey("mqtt_tls")
+        val MQTT_CLIENT_ID = stringPreferencesKey("mqtt_client_id")
     }
 
     fun observe(): Flow<RuntimeConfig> = context.dataStore.data.map { p ->
@@ -31,13 +36,15 @@ class AppConfigStore(private val context: Context) {
             requestTimeoutMs = p[Keys.REQUEST_TIMEOUT] ?: 30_000L
         )
 
+        // ✅ Securely fetching credentials from EncryptedSharedPreferences
         val mqtt = MqttRuntimeConfig(
             host = p[Keys.MQTT_HOST] ?: if (env == Environment.PROD) AppConfig.MQTT_HOST_PROD else AppConfig.MQTT_HOST_DEV,
             port = p[Keys.MQTT_PORT] ?: if (env == Environment.PROD) AppConfig.MQTT_PORT_TLS else 1883,
             useTls = p[Keys.MQTT_TLS] ?: (env == Environment.PROD),
-            clientIdPrefix = "msahub_android",
-            username = null, // Secrets are handled by SecretsStore
-            password = null  // Secrets are handled by SecretsStore
+            clientIdPrefix = p[Keys.MQTT_CLIENT_ID] ?: "msahub_android",
+            username = securePrefs.getString("mqtt_user"),
+            password = securePrefs.getString("mqtt_pass"),
+            keepAliveSec = 60
         )
 
         RuntimeConfig(
@@ -48,19 +55,12 @@ class AppConfigStore(private val context: Context) {
         )
     }
 
-    suspend fun setEnv(env: Environment) {
-        context.dataStore.edit { it[Keys.ENV] = env.name }
+    suspend fun setMqttUsername(user: String?) {
+        securePrefs.saveString("mqtt_user", user ?: "")
     }
 
-    suspend fun setApiBaseUrl(url: String) {
-        context.dataStore.edit { it[Keys.API_BASE_URL] = url }
-    }
-
-    suspend fun setHttpTimeouts(connectTimeoutMs: Long, requestTimeoutMs: Long) {
-        context.dataStore.edit {
-            it[Keys.CONNECT_TIMEOUT] = connectTimeoutMs
-            it[Keys.REQUEST_TIMEOUT] = requestTimeoutMs
-        }
+    suspend fun setMqttPassword(pass: String?) {
+        securePrefs.saveString("mqtt_pass", pass ?: "")
     }
 
     suspend fun setMqttHost(host: String) {
@@ -75,29 +75,20 @@ class AppConfigStore(private val context: Context) {
         context.dataStore.edit { it[Keys.MQTT_TLS] = useTls }
     }
 
-    @Deprecated("Secrets are stored in SecretsStore (SecurePrefs). Use ConfigRepository.setMqttUsername()")
-    suspend fun setMqttUser(user: String?) { /* no-op */ }
-
-    @Deprecated("Secrets are stored in SecretsStore (SecurePrefs). Use ConfigRepository.setMqttPassword()")
-    suspend fun setMqttPass(pass: String?) { /* no-op */ }
+    suspend fun setApiBaseUrl(url: String) {
+        context.dataStore.edit { it[Keys.API_BASE_URL] = url }
+    }
 
     companion object {
         fun defaultRuntimeConfig(): RuntimeConfig {
             return RuntimeConfig(
                 env = Environment.DEV,
-                http = HttpRuntimeConfig(
-                    baseUrl = AppConfig.API_BASE_URL_DEV,
-                    connectTimeoutMs = 30_000,
-                    requestTimeoutMs = 30_000
-                ),
+                http = HttpRuntimeConfig(baseUrl = AppConfig.API_BASE_URL_DEV),
                 mqtt = MqttRuntimeConfig(
                     host = AppConfig.MQTT_HOST_DEV,
                     port = 1883,
                     useTls = false,
-                    clientIdPrefix = "msahub_android",
-                    username = null,
-                    password = null,
-                    keepAliveSec = 60
+                    clientIdPrefix = "msahub_android"
                 ),
                 sync = SyncPolicy()
             )

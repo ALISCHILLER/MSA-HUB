@@ -7,7 +7,11 @@ import com.msa.msahub.features.devices.domain.model.Device
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.request.url
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
 class DeviceApiServiceImpl(
     private val httpClient: HttpClient,
@@ -29,5 +33,15 @@ class DeviceApiServiceImpl(
         }.body()
         
         return mapper.fromRemote(remoteModel)
+    }
+
+    override suspend fun registerDevice(device: Device): Boolean {
+        return runCatching {
+            httpClient.post {
+                url("${networkConfig.baseUrl}/devices/register")
+                contentType(ContentType.Application.Json)
+                setBody(mapper.toRemote(device))
+            }.status.value in 200..299
+        }.getOrDefault(false)
     }
 }

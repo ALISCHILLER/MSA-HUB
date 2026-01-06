@@ -4,9 +4,6 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-/**
- * مدیریت ذخیره‌سازی امن با استفاده از AES-256 و Android KeyStore
- */
 class SecurePrefs(context: Context) {
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -20,7 +17,7 @@ class SecurePrefs(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    fun putString(key: String, value: String?) {
+    fun saveString(key: String, value: String?) {
         prefs.edit().apply {
             if (value == null) remove(key) else putString(key, value)
         }.apply()
