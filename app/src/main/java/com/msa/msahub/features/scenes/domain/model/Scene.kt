@@ -14,5 +14,6 @@ data class Scene(
 data class SceneAction(
     val deviceId: String,
     val command: String,
-    val payload: String? = null
+    // ارتقا به params برای یکپارچگی کامل با DeviceCommand
+    val params: Map<String, String> = emptyMap() 
 )

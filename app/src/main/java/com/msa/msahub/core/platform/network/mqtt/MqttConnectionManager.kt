@@ -23,7 +23,6 @@ class MqttConnectionManager(
     private var lastApplied: MqttRuntimeConfig? = null
     private var started = false
     
-    // Exponential Backoff parameters
     private var retryAttempt = 0
     private val baseDelayMs = 2000L
     private val maxDelayMs = 60000L
@@ -32,24 +31,25 @@ class MqttConnectionManager(
         if (started) return
         started = true
 
-        // Monitoring network changes
+        logger.i("[MQTT] Manager starting...")
+
         scope.launch {
             connectivityObserver.observe().collect { state ->
-                logger.i("Network state changed: $state")
+                logger.d("[MQTT] Network state changed: $state")
                 if (state.isConnected) {
+                    logger.i("[MQTT] Internet restored. Resetting backoff and connecting.")
                     resetBackoff()
                     ensureConnected(reason = "network_connected")
                 }
             }
         }
 
-        // Monitoring config changes
         configJob?.cancel()
         configJob = runtimeConfigProvider.config
             .debounce(500)
             .onEach { cfg ->
                 if (lastApplied != null && !equivalent(lastApplied!!, cfg)) {
-                    logger.i("MQTT config changed => reconnecting")
+                    logger.i("[MQTT] Configuration updated by user. Reconnecting...")
                     resetBackoff()
                     reconnect(reason = "config_changed")
                 }
@@ -57,13 +57,15 @@ class MqttConnectionManager(
             }
             .launchIn(scope)
             
-        // Initial connection
         ensureConnected(reason = "startup")
     }
 
     private fun ensureConnected(reason: String) {
         scope.launch {
-            if (mqttClient.connectionState.value == MqttConnectionState.Connected) return@launch
+            if (mqttClient.connectionState.value == MqttConnectionState.Connected) {
+                logger.d("[MQTT] Already connected. Skipping ensureConnected ($reason).")
+                return@launch
+            }
             connectInternal(reason)
         }
     }
@@ -71,11 +73,14 @@ class MqttConnectionManager(
     private suspend fun connectInternal(reason: String) {
         reconnectMutex.withLock {
             val cfg = buildMqttConfig(runtimeConfigProvider.current())
+            logger.i("[MQTT] Attempting connection ($reason) to ${cfg.host}:${cfg.port} as ${cfg.clientId}")
+            
             runCatching {
                 mqttClient.connect(cfg)
+                logger.i("[MQTT] Successfully connected to broker.")
                 resetBackoff()
             }.onFailure { e ->
-                logger.e("MQTT connection failed ($reason): ${e.message}")
+                logger.e("[MQTT] Connection attempt failed: ${e.message}", e)
                 scheduleRetry(reason)
             }
         }
@@ -83,7 +88,7 @@ class MqttConnectionManager(
 
     private fun scheduleRetry(reason: String) {
         val delay = calculateBackoff()
-        logger.d("Scheduling MQTT retry in ${delay}ms (Attempt: $retryAttempt)")
+        logger.w("[MQTT] Scheduling retry in ${delay}ms (Attempt #$retryAttempt) due to $reason")
         
         scope.launch {
             delay(delay)
@@ -100,11 +105,13 @@ class MqttConnectionManager(
     }
 
     private fun resetBackoff() {
+        if (retryAttempt > 0) logger.d("[MQTT] Resetting retry backoff.")
         retryAttempt = 0
     }
 
     private fun reconnect(reason: String) {
         scope.launch {
+            logger.i("[MQTT] Manual reconnection triggered: $reason")
             runCatching { mqttClient.disconnect() }
             connectInternal(reason)
         }
@@ -115,12 +122,12 @@ class MqttConnectionManager(
         return MqttConfig(
             host = m.host,
             port = m.port,
-            clientId = m.clientIdPrefix, // Using stable prefix from config
+            clientId = m.clientIdPrefix,
             username = m.username,
             password = m.password,
             useTls = m.useTls,
             keepAlive = m.keepAliveSec,
-            cleanStart = false, // Session persistence
+            cleanStart = false,
             sslContext = ssl
         )
     }

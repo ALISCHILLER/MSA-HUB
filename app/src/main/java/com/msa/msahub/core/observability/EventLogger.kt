@@ -1,20 +1,30 @@
 package com.msa.msahub.core.observability
 
+import com.msa.msahub.core.common.Logger
 import timber.log.Timber
 
-interface EventLogger {
-    fun logEvent(name: String, properties: Map<String, Any?> = emptyMap())
-    fun logError(name: String, throwable: Throwable?, properties: Map<String, Any?> = emptyMap())
-}
+/**
+ * سیستم لاگینگ پیشرفته برای ثبت رویدادهای سیستم.
+ * این کلاس به شما کمک می‌کند تا جریان داده‌ها را در بخش‌های مختلف (MQTT, DB, UI) ردیابی کنید.
+ */
+class EventLogger(private val logger: Logger) {
 
-class TimberEventLogger : EventLogger {
-    override fun logEvent(name: String, properties: Map<String, Any?>) {
-        val propsString = properties.entries.joinToString { "${it.key}=${it.value}" }
-        Timber.i("EVENT: [$name] $propsString")
+    fun logMqtt(message: String, isError: Boolean = false) {
+        val formatted = "[MQTT] $message"
+        if (isError) logger.e(formatted) else logger.i(formatted)
     }
 
-    override fun logError(name: String, throwable: Throwable?, properties: Map<String, Any?>) {
-        val propsString = properties.entries.joinToString { "${it.key}=${it.value}" }
-        Timber.e(throwable, "ERROR_EVENT: [$name] $propsString")
+    fun logCommand(deviceId: String, action: String, status: String) {
+        logger.i("[COMMAND] Device: $deviceId | Action: $action | Status: $status")
+    }
+
+    fun logAutomation(name: String, triggered: Boolean) {
+        if (triggered) {
+            logger.d("[AUTO] Automation Triggered: $name")
+        }
+    }
+
+    fun logError(context: String, throwable: Throwable) {
+        logger.e("[ERROR] @ $context: ${throwable.message}", throwable)
     }
 }

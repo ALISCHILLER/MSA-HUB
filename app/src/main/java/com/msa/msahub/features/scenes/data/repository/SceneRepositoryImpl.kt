@@ -11,11 +11,12 @@ import com.msa.msahub.features.scenes.domain.model.Scene
 import com.msa.msahub.features.scenes.domain.repository.SceneRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.UUID
 
 class SceneRepositoryImpl(
     private val dao: SceneDao,
     private val mapper: SceneMapper,
-    private val deviceRepository: DeviceRepository, // جایگزین mqtt و offlineDao شد
+    private val deviceRepository: DeviceRepository,
     private val clock: Clock
 ) : SceneRepository {
 
@@ -51,8 +52,12 @@ class SceneRepositoryImpl(
     }
 
     /**
-     * اجرای یک صحنه حالا کاملاً از مسیر استاندارد DeviceRepository عبور می‌کند.
-     * این یعنی صحنه‌ها هم از سیستم Outbox و Retry خودکار بهره‌مند می‌شوند.
+     * Patch Applied: 
+     * Now using deviceRepository.sendCommand instead of direct MQTT/DAO calls.
+     * This ensures scenes benefit from:
+     * 1. Standard JSON payload (with commandId)
+     * 2. Proper Outbox queueing with correlationId
+     * 3. Consistent error logging
      */
     override suspend fun executeScene(sceneId: String): Result<Unit> {
         val scene = when (val r = getScene(sceneId)) {
@@ -62,20 +67,22 @@ class SceneRepositoryImpl(
 
         return try {
             scene.actions.forEach { action ->
-                val cmd = DeviceCommand(
+                val command = DeviceCommand(
                     deviceId = action.deviceId,
                     action = action.command,
+                    // If your SceneAction has a specific params map, use it here.
+                    // For now, mapping action.payload to a param named 'raw' if needed,
+                    // but preferably scenes should use structured params.
                     params = action.params ?: emptyMap(),
                     createdAtMillis = clock.nowMillis()
                 )
                 
-                // تمام منطق publish یا صف‌بندی در اینجا متمرکز است
-                deviceRepository.sendCommand(cmd)
+                deviceRepository.sendCommand(command)
             }
 
             Result.Success(Unit)
         } catch (t: Throwable) {
-            Result.Failure(AppError.Unknown("Failed to execute scene: ${t.message}", t))
+            Result.Failure(AppError.Unknown("Failed to execute scene", t))
         }
     }
 }

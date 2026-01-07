@@ -6,10 +6,16 @@ import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
 import com.msa.msahub.features.devices.domain.model.DeviceCommand
 import org.json.JSONObject
 
+/**
+ * مسئول تبدیل مدل‌های فرمان به فرمت‌های قابل انتقال و ذخیره‌سازی.
+ * قانون طلایی: همیشه یک commandId منحصر‌به‌فرد برای جلوگیری از اجرای تکراری (Idempotency) وجود دارد.
+ */
 class DeviceCommandMapper {
 
     fun toMqttPayload(command: DeviceCommand): ByteArray {
         val obj = JSONObject().apply {
+            // استفاده از commandId برای Idempotency سمت دستگاه
+            put("commandId", command.commandId) 
             put("deviceId", command.deviceId)
             put("action", command.action)
             put("createdAt", command.createdAtMillis)
@@ -36,9 +42,10 @@ class DeviceCommandMapper {
             qos = qosToInt(qos),
             retained = retained,
             createdAtMillis = createdAtMillis,
-            correlationId = correlationId,
+            correlationId = correlationId ?: id,
             attempts = 0,
-            lastError = null
+            lastError = null,
+            nextRetryAtMillis = 0 // برای تلاش اول بلافاصله آماده است
         )
     }
 

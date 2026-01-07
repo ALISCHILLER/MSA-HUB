@@ -9,13 +9,14 @@ import com.msa.msahub.features.devices.data.local.dao.DeviceStateDao
 import com.msa.msahub.features.devices.data.local.entity.DeviceHistoryEntity
 import com.msa.msahub.features.devices.data.local.entity.DeviceStateEntity
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+/**
+ * مدیریت‌کننده دیتای ورودی از سنسورها و دستگاه‌ها.
+ * وظیفه بروزرسانی دیتابیس محلی بر اساس پیام‌های MQTT را دارد.
+ */
 class MqttIngestor(
     private val mqttClient: MqttClient,
     private val deviceStateDao: DeviceStateDao,
@@ -26,108 +27,92 @@ class MqttIngestor(
 ) {
 
     fun start() {
-        logger.i("MqttIngestor starting...")
+        logger.i("[INGEST] Service starting...")
 
-        // Observe connection to re-subscribe if needed
+        // ۱. مدیریت اشتراک‌ها (Subscriptions) بر اساس وضعیت اتصال
         mqttClient.connectionState
             .onEach { state ->
                 if (state is MqttConnectionState.Connected) {
-                    logger.i("Connected. Subscribing to device statuses...")
-                    // Subscribe to all device statuses
-                    mqttClient.subscribe("devices/+/status")
+                    logger.i("[INGEST] Connected to broker. Subscribing to: ${DeviceMqttTopics.ALL_DEVICES_STATUS}")
+                    mqttClient.subscribe(DeviceMqttTopics.ALL_DEVICES_STATUS)
                 }
             }
             .launchIn(scope)
 
-        // Process incoming messages
+        // ۲. پردازش پیام‌های ورودی با فیلتر دقیق
         mqttClient.incomingMessages
-            .filter { it.topic.startsWith("devices/") && it.topic.endsWith("/status") }
+            .filter { DeviceMqttTopics.extractDeviceId(it.topic) != null }
             .onEach { msg ->
-                // topic format: devices/{deviceId}/status
-                val parts = msg.topic.split("/")
-                if (parts.size == 3) {
-                    val deviceId = parts[1]
-                    handleStatusMessage(deviceId, msg.payload)
-                }
+                val deviceId = DeviceMqttTopics.extractDeviceId(msg.topic)!!
+                handleStatusMessage(deviceId, msg.payload)
             }
             .launchIn(scope)
     }
 
     private suspend fun handleStatusMessage(deviceId: String, payload: ByteArray) {
         try {
-            val now = System.currentTimeMillis()
             val raw = payload.toString(Charsets.UTF_8)
+            val now = System.currentTimeMillis()
 
-            // 1) Prefer the standardized event model (kotlinx.serialization)
-            val evt = DeviceStatusEvent.fromJson(raw)
-            if (evt != null) {
-                val state = evt.state
-                val entity = DeviceStateEntity(
-                    id = ids.uuid(),
-                    deviceId = deviceId,
-                    isOnline = evt.online,
-                    isOn = parseBool(state, "on") ?: parseBool(state, "isOn"),
-                    brightness = parseInt(state, "brightness"),
-                    temperatureC = parseDouble(state, "temp") ?: parseDouble(state, "temperatureC"),
-                    humidityPercent = parseDouble(state, "humidity") ?: parseDouble(state, "humidityPercent"),
-                    batteryPercent = parseInt(state, "battery") ?: parseInt(state, "batteryPercent"),
-                    updatedAtMillis = evt.timestamp
-                )
-                deviceStateDao.upsert(entity)
+            // استخراج وضعیت جدید (State)
+            val newState = parseToEntity(deviceId, raw, now) ?: return
 
-                // ✅ ثبت History
-                deviceHistoryDao.insert(
-                    DeviceHistoryEntity(
-                        id = ids.uuid(),
-                        deviceId = deviceId,
-                        stateId = entity.id,
-                        recordedAtMillis = evt.timestamp
-                    )
-                )
-                return
+            // ۳. بهینه‌سازی (Deduplication):
+            // فقط اگر وضعیت واقعاً تغییر کرده باشد، دیتابیس را آپدیت می‌کنیم.
+            val lastState = deviceStateDao.getLatest(deviceId)
+            
+            if (isSameState(lastState, newState)) {
+                // اگر دیتا تکراری است، فقط updatedAt را آپدیت کن (اختیاری) یا کلاً نادیده بگیر
+                return 
             }
 
-            // 2) Fallback: accept plain JSON
+            // ۴. بروزرسانی دیتابیس
+            deviceStateDao.upsert(newState)
+            logger.d("[INGEST] State updated for $deviceId")
+
+            // ۵. ثبت در تاریخچه (History) - فقط برای تغییرات واقعی
+            deviceHistoryDao.insert(
+                DeviceHistoryEntity(
+                    id = ids.uuid(),
+                    deviceId = deviceId,
+                    stateId = newState.id,
+                    recordedAtMillis = newState.updatedAtMillis
+                )
+            )
+        } catch (e: Exception) {
+            logger.e("[INGEST] Error processing message for $deviceId", e)
+        }
+    }
+
+    private fun parseToEntity(deviceId: String, raw: String, now: Long): DeviceStateEntity? {
+        return try {
             val json = JSONObject(raw)
-            val entity = DeviceStateEntity(
+            DeviceStateEntity(
                 id = ids.uuid(),
                 deviceId = deviceId,
                 isOnline = json.optBoolean("online", true),
                 isOn = if (json.has("on")) json.optBoolean("on") else null,
                 brightness = if (json.has("brightness")) json.optInt("brightness") else null,
-                temperatureC = if (json.has("temp")) json.optDouble("temp") else null,
+                temperatureC = if (json.has("temp")) json.optDouble("temp") else if (json.has("temperatureC")) json.optDouble("temperatureC") else null,
                 humidityPercent = if (json.has("humidity")) json.optDouble("humidity") else null,
                 batteryPercent = if (json.has("battery")) json.optInt("battery") else null,
-                updatedAtMillis = now
-            )
-            deviceStateDao.upsert(entity)
-
-            // ✅ ثبت History (Fallback)
-            deviceHistoryDao.insert(
-                DeviceHistoryEntity(
-                    id = ids.uuid(),
-                    deviceId = deviceId,
-                    stateId = entity.id,
-                    recordedAtMillis = now
-                )
+                updatedAtMillis = json.optLong("timestamp", now)
             )
         } catch (e: Exception) {
-            logger.e("Parse error for $deviceId", e)
+            null
         }
     }
 
-    private fun parseInt(map: Map<String, String>, key: String): Int? =
-        map[key]?.trim()?.toIntOrNull()
-
-    private fun parseDouble(map: Map<String, String>, key: String): Double? =
-        map[key]?.trim()?.toDoubleOrNull()
-
-    private fun parseBool(map: Map<String, String>, key: String): Boolean? {
-        val v = map[key]?.trim()?.lowercase() ?: return null
-        return when (v) {
-            "true", "1", "yes", "on" -> true
-            "false", "0", "no", "off" -> false
-            else -> null
-        }
+    /**
+     * مقایسه دو وضعیت برای تشخیص تغییرات واقعی.
+     */
+    private fun isSameState(old: DeviceStateEntity?, new: DeviceStateEntity): Boolean {
+        if (old == null) return false
+        return old.isOnline == new.isOnline &&
+               old.isOn == new.isOn &&
+               old.brightness == new.brightness &&
+               old.temperatureC == new.temperatureC &&
+               old.humidityPercent == new.humidityPercent &&
+               old.batteryPercent == new.batteryPercent
     }
 }
