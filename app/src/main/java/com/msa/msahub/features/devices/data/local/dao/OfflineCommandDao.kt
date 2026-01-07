@@ -11,11 +11,13 @@ interface OfflineCommandDao {
         SELECT * FROM offline_commands 
         WHERE status = :pending 
           AND attempts < maxAttempts 
+          AND nextRetryAtMillis <= :now
         ORDER BY createdAtMillis ASC 
         LIMIT :limit
     """)
     suspend fun getReadyCommands(
         limit: Int, 
+        now: Long,
         pending: OfflineCommandStatus = OfflineCommandStatus.PENDING
     ): List<OfflineCommandEntity>
 
@@ -38,10 +40,17 @@ interface OfflineCommandDao {
         SET status = :pending, 
             attempts = attempts + 1, 
             lastError = :error, 
+            nextRetryAtMillis = :nextRetryAt,
             updatedAtMillis = :now 
         WHERE id = :id
     """)
-    suspend fun markFailedAndRetry(id: String, error: String?, now: Long, pending: OfflineCommandStatus = OfflineCommandStatus.PENDING)
+    suspend fun markFailedAndRetry(
+        id: String, 
+        error: String?, 
+        nextRetryAt: Long,
+        now: Long, 
+        pending: OfflineCommandStatus = OfflineCommandStatus.PENDING
+    )
 
     @Query("""
         UPDATE offline_commands 

@@ -2,6 +2,8 @@ package com.msa.msahub.features.devices.data.repository
 
 import com.msa.msahub.core.common.AppError
 import com.msa.msahub.core.common.Result
+import com.msa.msahub.core.platform.network.mqtt.MqttClient
+import com.msa.msahub.core.platform.network.mqtt.MqttConnectionState
 import com.msa.msahub.core.platform.network.mqtt.Qos
 import com.msa.msahub.features.devices.data.local.dao.*
 import com.msa.msahub.features.devices.data.mapper.*
@@ -22,6 +24,7 @@ class DeviceRepositoryImpl(
     private val deviceHistoryDao: DeviceHistoryDao,
     private val api: DeviceApiService,
     private val mqttHandler: DeviceMqttHandler,
+    private val mqttClient: MqttClient, // اضافه شده برای چک کردن وضعیت اتصال
     private val outbox: OfflineCommandOutbox,
     private val deviceMapper: DeviceMapper,
     private val deviceStateMapper: DeviceStateMapper,
@@ -114,15 +117,28 @@ class DeviceRepositoryImpl(
         Result.Failure(AppError.Database("Failed to load history", t))
     }
 
+    /**
+     * هسته مرکزی ارسال فرمان.
+     * این متد تصمیم می‌گیرد فرمان را همین الان بفرستد یا در صف آفلاین قرار دهد.
+     */
     override suspend fun sendCommand(command: DeviceCommand): Result<CommandAck> = try {
         val topic = DeviceMqttTopics.commandTopic(command.deviceId)
+        // ساخت Payload استاندارد (Envelope) شامل CommandId برای Idempotency
         val payload = commandMapper.toMqttPayload(command)
-        val publishOk = runCatching {
-            mqttHandler.publishCommand(topic, payload, Qos.AtLeastOnce, false)
-        }.isSuccess
+        
+        // ۱. چک کردن وضعیت اتصال قبل از هر کاری
+        val isConnected = mqttClient.connectionState.value is MqttConnectionState.Connected
 
-        if (publishOk) Result.Success(CommandAck.Success)
-        else {
+        val publishOk = if (isConnected) {
+            runCatching {
+                mqttHandler.publishCommand(topic, payload, Qos.AtLeastOnce, false)
+            }.isSuccess
+        } else false
+
+        if (publishOk) {
+            Result.Success(CommandAck.Success)
+        } else {
+            // ۲. اگر ارسال نشد (یا قطع بودیم)، فرمان را در صف آفلاین ذخیره می‌کنیم
             offlineCommandDao.insert(
                 commandMapper.toOfflineEntity(
                     id = UUID.randomUUID().toString(),
@@ -138,7 +154,7 @@ class DeviceRepositoryImpl(
             Result.Success(CommandAck.QueuedOffline)
         }
     } catch (t: Throwable) {
-        Result.Failure(AppError.Mqtt("Send failed", t))
+        Result.Failure(AppError.Mqtt("Critical failure in sendCommand", t))
     }
 
     override suspend fun flushOutbox(max: Int): Result<Int> {

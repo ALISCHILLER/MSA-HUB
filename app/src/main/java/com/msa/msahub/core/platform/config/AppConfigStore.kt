@@ -7,6 +7,7 @@ import com.msa.msahub.app.AppConfig
 import com.msa.msahub.core.security.storage.SecurePrefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.*
 
 private val Context.dataStore by preferencesDataStore(name = "msa_config")
 
@@ -24,7 +25,7 @@ class AppConfigStore(
         val MQTT_HOST = stringPreferencesKey("mqtt_host")
         val MQTT_PORT = intPreferencesKey("mqtt_port")
         val MQTT_TLS = booleanPreferencesKey("mqtt_tls")
-        val MQTT_CLIENT_ID = stringPreferencesKey("mqtt_client_id")
+        val MQTT_CLIENT_ID_PREFIX = stringPreferencesKey("mqtt_client_id_prefix")
     }
 
     fun observe(): Flow<RuntimeConfig> = context.dataStore.data.map { p ->
@@ -36,12 +37,14 @@ class AppConfigStore(
             requestTimeoutMs = p[Keys.REQUEST_TIMEOUT] ?: 30_000L
         )
 
-        // ✅ Securely fetching credentials from EncryptedSharedPreferences
+        // تهیه یا تولید ClientId یکتا به صورت امن
+        val uniqueId = getOrCreateUniqueDeviceId()
+
         val mqtt = MqttRuntimeConfig(
             host = p[Keys.MQTT_HOST] ?: if (env == Environment.PROD) AppConfig.MQTT_HOST_PROD else AppConfig.MQTT_HOST_DEV,
             port = p[Keys.MQTT_PORT] ?: if (env == Environment.PROD) AppConfig.MQTT_PORT_TLS else 1883,
             useTls = p[Keys.MQTT_TLS] ?: (env == Environment.PROD),
-            clientIdPrefix = p[Keys.MQTT_CLIENT_ID] ?: "msahub_android",
+            clientIdPrefix = (p[Keys.MQTT_CLIENT_ID_PREFIX] ?: "msahub_android") + "-" + uniqueId,
             username = securePrefs.getString("mqtt_user"),
             password = securePrefs.getString("mqtt_pass"),
             keepAliveSec = 60
@@ -53,6 +56,15 @@ class AppConfigStore(
             mqtt = mqtt,
             sync = SyncPolicy()
         )
+    }
+
+    private fun getOrCreateUniqueDeviceId(): String {
+        var id = securePrefs.getString("internal_device_uuid")
+        if (id.isNullOrBlank()) {
+            id = UUID.randomUUID().toString().take(8) // کوتاه برای خوانایی، اما کافی برای یکتا بودن
+            securePrefs.saveString("internal_device_uuid", id)
+        }
+        return id
     }
 
     suspend fun setMqttUsername(user: String?) {

@@ -1,16 +1,10 @@
 package com.msa.msahub.features.scenes.data.repository
 
-import android.util.Base64
 import com.msa.msahub.core.common.AppError
 import com.msa.msahub.core.common.Clock
-import com.msa.msahub.core.common.IdGenerator
 import com.msa.msahub.core.common.Result
-import com.msa.msahub.core.platform.network.mqtt.MqttClient
-import com.msa.msahub.core.platform.network.mqtt.MqttMessage
-import com.msa.msahub.core.platform.network.mqtt.Qos
-import com.msa.msahub.features.devices.data.local.dao.OfflineCommandDao
-import com.msa.msahub.features.devices.data.local.entity.OfflineCommandEntity
-import com.msa.msahub.features.devices.data.remote.mqtt.DeviceMqttTopics
+import com.msa.msahub.features.devices.domain.model.DeviceCommand
+import com.msa.msahub.features.devices.domain.repository.DeviceRepository
 import com.msa.msahub.features.scenes.data.local.dao.SceneDao
 import com.msa.msahub.features.scenes.data.mapper.SceneMapper
 import com.msa.msahub.features.scenes.domain.model.Scene
@@ -21,10 +15,8 @@ import kotlinx.coroutines.flow.map
 class SceneRepositoryImpl(
     private val dao: SceneDao,
     private val mapper: SceneMapper,
-    private val mqtt: MqttClient,
-    private val offlineDao: OfflineCommandDao,
-    private val clock: Clock,
-    private val ids: IdGenerator
+    private val deviceRepository: DeviceRepository, // جایگزین mqtt و offlineDao شد
+    private val clock: Clock
 ) : SceneRepository {
 
     override fun observeScenes(): Flow<List<Scene>> {
@@ -58,6 +50,10 @@ class SceneRepositoryImpl(
         }
     }
 
+    /**
+     * اجرای یک صحنه حالا کاملاً از مسیر استاندارد DeviceRepository عبور می‌کند.
+     * این یعنی صحنه‌ها هم از سیستم Outbox و Retry خودکار بهره‌مند می‌شوند.
+     */
     override suspend fun executeScene(sceneId: String): Result<Unit> {
         val scene = when (val r = getScene(sceneId)) {
             is Result.Failure -> return r
@@ -65,32 +61,21 @@ class SceneRepositoryImpl(
         }
 
         return try {
-            val isConnected = mqtt.connectionState.value.toString().contains("Connected", ignoreCase = true)
-
             scene.actions.forEach { action ->
-                val topic = DeviceMqttTopics.commandTopic(action.deviceId)
-                val payloadBytes = (action.payload ?: action.command).toByteArray()
-
-                if (isConnected) {
-                    mqtt.publish(MqttMessage(topic = topic, payload = payloadBytes))
-                } else {
-                    offlineDao.insert(
-                        OfflineCommandEntity(
-                            id = ids.uuid(),
-                            deviceId = action.deviceId,
-                            topic = topic,
-                            payloadBase64 = Base64.encodeToString(payloadBytes, Base64.NO_WRAP),
-                            qos = 1, // Default to AtLeastOnce
-                            retained = false,
-                            createdAtMillis = clock.nowMillis()
-                        )
-                    )
-                }
+                val cmd = DeviceCommand(
+                    deviceId = action.deviceId,
+                    action = action.command,
+                    params = action.params ?: emptyMap(),
+                    createdAtMillis = clock.nowMillis()
+                )
+                
+                // تمام منطق publish یا صف‌بندی در اینجا متمرکز است
+                deviceRepository.sendCommand(cmd)
             }
 
             Result.Success(Unit)
         } catch (t: Throwable) {
-            Result.Failure(AppError.Unknown("Failed to execute scene", t))
+            Result.Failure(AppError.Unknown("Failed to execute scene: ${t.message}", t))
         }
     }
 }

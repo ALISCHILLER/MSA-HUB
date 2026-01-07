@@ -30,24 +30,39 @@ object AppInitializer : KoinComponent {
         val appScope = get<CoroutineScope>(AppScopeModule.APP_SCOPE)
         
         appScope.launch {
-            runCatching {
-                // مقداردهی اولیه دیتابیس (سنگین)
-                get<DatabaseInitializer>().seedIfNeeded()
-
-                // مدیریت اتصال MQTT (سنگین - شامل شبکه و TLS)
-                get<MqttConnectionManager>().start()
-
-                // شروع Ingestor و موتور اتوماسیون
-                get<MqttIngestor>().start()
-                get<AutomationEngine>().start()
-
-                // زمان‌بندی کارهای پس‌زمینه (WorkManager)
-                get<WorkScheduler>().scheduleAll()
-                
-                logger.i("AppInitializer: All background services started successfully.")
-            }.onFailure { e ->
-                logger.e("AppInitializer background start failed", e)
+            // هر سرویس جداگانه مدیریت می‌شود تا خطای یکی باعث توقف بقیه نشود
+            
+            launch {
+                runCatching {
+                    get<DatabaseInitializer>().seedIfNeeded()
+                }.onFailure { logger.e("Database seeding failed", it) }
             }
+
+            launch {
+                runCatching {
+                    get<MqttConnectionManager>().start()
+                }.onFailure { logger.e("MqttConnectionManager start failed", it) }
+            }
+
+            launch {
+                runCatching {
+                    get<MqttIngestor>().start()
+                }.onFailure { logger.e("MqttIngestor start failed", it) }
+            }
+
+            launch {
+                runCatching {
+                    get<AutomationEngine>().start()
+                }.onFailure { logger.e("AutomationEngine start failed", it) }
+            }
+
+            launch {
+                runCatching {
+                    get<WorkScheduler>().scheduleAll()
+                }.onFailure { logger.e("WorkScheduler failed", it) }
+            }
+            
+            logger.i("AppInitializer: Background services initialization triggered.")
         }
     }
 

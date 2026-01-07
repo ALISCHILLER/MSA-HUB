@@ -10,7 +10,8 @@ import androidx.room.PrimaryKey
         Index(value = ["deviceId"]),
         Index(value = ["createdAtMillis"]),
         Index(value = ["status"]),
-        Index(value = ["attempts"])
+        Index(value = ["attempts"]),
+        Index(value = ["nextRetryAtMillis"]) // ایندکس برای سرعت بخشیدن به کوئری flush
     ]
 )
 data class OfflineCommandEntity(
@@ -26,6 +27,7 @@ data class OfflineCommandEntity(
     val maxAttempts: Int = 5,
     val lastError: String? = null,
     val lastAttemptAtMillis: Long? = null,
+    val nextRetryAtMillis: Long = 0, // زمان مجاز برای تلاش بعدی (۰ یعنی بلافاصله)
     val createdAtMillis: Long,
     val updatedAtMillis: Long = createdAtMillis
 )

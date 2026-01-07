@@ -48,8 +48,13 @@ class HiveMqttClientImpl : MqttClient {
                 .automaticReconnectWithDefaultConfig()
 
             if (config.useTls) {
-                // Using default SSL config as Mqtt5SslConfigBuilder doesn't support raw SSLContext easily
-                builder.sslWithDefaultConfig()
+                if (config.sslContext != null) {
+                    builder.sslConfig()
+                        .sslContext(config.sslContext)
+                        .applySslConfig()
+                } else {
+                    builder.sslWithDefaultConfig()
+                }
             }
 
             config.username?.let { username ->
@@ -76,7 +81,7 @@ class HiveMqttClientImpl : MqttClient {
             }
 
             _connectionState.value = MqttConnectionState.Connected
-            Timber.i("MQTT Connected Successfully to ${config.host}")
+            Timber.i("MQTT Connected Successfully as ${config.clientId}")
 
             reSubscribeAll()
 
